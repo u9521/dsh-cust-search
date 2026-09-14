@@ -1,0 +1,132 @@
+name: Build & Deploy Dist
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '.github/**'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: dist-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run linter and typecheck
+        run: pnpm run lint
+
+      - name: Run build
+        run: pnpm run build
+
+      - name: Prepare minimal dist package
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          rm -rf .dist
+          mkdir -p .dist/lib
+
+          # Copy minimal required runtime files (only index.js and client.js; no types or sourcemaps)
+          cp lib/index.js lib/client.js .dist/lib/
+          cp cordis.patch.yml LICENSE .dist/
+
+          # Generate minimal dist README and sanitized production package.json
+          node -e '
+            const fs = require("node:fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const repo = process.env.GITHUB_REPO || "u9521/dsh-cust-search";
+
+            const readme = [
+              "# dsh-cust-search",
+              "",
+              "Pre-built distribution package for **dsh-cust-search** (Multi-Engine Sequential Fallback Custom Web Search plugin for DeepSeek Harness WebUI).",
+              "",
+              "For full documentation, screenshots, and source code, visit the GitHub repository:",
+              "",
+              `👉 **https://github.com/${repo}**`,
+              "",
+              "## Quick Install",
+              "",
+              "```sh",
+              `dsh plugin --profile web add github:${repo}#dist`,
+              "```",
+              "",
+              "Then restart web (`dsh web`) and hard-refresh your browser (Cmd+Shift+R).",
+              "",
+              "## License",
+              "",
+              "[MIT](LICENSE)",
+              "",
+            ].join("\n");
+            fs.writeFileSync(".dist/README.md", readme);
+
+            const distPkg = {
+              name: pkg.name,
+              version: pkg.version,
+              type: pkg.type,
+              description: pkg.description,
+              license: pkg.license,
+              main: "./lib/index.js",
+              files: ["lib", "cordis.patch.yml", "README.md", "LICENSE"],
+              engines: pkg.engines,
+              dsh: pkg.dsh,
+              keywords: pkg.keywords,
+              exports: {
+                ".": "./lib/index.js",
+                "./client": "./lib/client.js",
+                "./cordis.patch.yml": "./cordis.patch.yml",
+                "./package.json": "./package.json",
+              },
+            };
+            if (pkg.author) distPkg.author = pkg.author;
+            if (pkg.repository) distPkg.repository = pkg.repository;
+            if (pkg.homepage) distPkg.homepage = pkg.homepage;
+            if (pkg.bugs) distPkg.bugs = pkg.bugs;
+            if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) {
+              distPkg.dependencies = pkg.dependencies;
+            }
+            if (pkg.peerDependencies && Object.keys(pkg.peerDependencies).length > 0) {
+              distPkg.peerDependencies = pkg.peerDependencies;
+            }
+            fs.writeFileSync(".dist/package.json", JSON.stringify(distPkg, null, 2) + "\n");
+          '
+
+      - name: Deploy to dist branch
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
+        run: |
+          cd .dist
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "build: release dist from commit ${{ github.sha }}"
+          git branch -M dist
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" dist
