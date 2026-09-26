@@ -1,9 +1,9 @@
 import * as React from 'react'
 import {
-  IconChevronDownOutline14,
-  IconChevronUpOutline14,
-  IconLoadingOutline16,
-  IconRefreshOutline16,
+  IconChevronDownOutlineRegular,
+  IconChevronUpOutlineRegular,
+  IconLoadingOutlineRegular,
+  IconRefreshOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EngineDefinition } from '../../../types.ts'
 import { useI18n } from '../../i18n.ts'
@@ -78,7 +78,7 @@ export function EngineResultCard({
             },
             title: t('testModal.retry'),
           },
-          e(IconRefreshOutline16, { size: 13 }),
+          e(IconRefreshOutlineRegular, { size: 13 }),
           e('span', null, t('testModal.retry')),
         ),
         e(
@@ -95,8 +95,8 @@ export function EngineResultCard({
               : t('testModal.collapse'),
           },
           isCollapsed
-            ? e(IconChevronDownOutline14, { size: 12 })
-            : e(IconChevronUpOutline14, { size: 12 }),
+            ? e(IconChevronDownOutlineRegular, { size: 12 })
+            : e(IconChevronUpOutlineRegular, { size: 12 }),
           e(
             'span',
             null,
@@ -115,7 +115,7 @@ export function EngineResultCard({
             ? e(
                 'div',
                 { className: 'dsh-cs-test-loading-hint' },
-                e(IconLoadingOutline16, {
+                e(IconLoadingOutlineRegular, {
                   size: 16,
                   className: 'dsh-cs-spin',
                 }),

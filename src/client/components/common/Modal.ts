@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const e = React.createElement
 
@@ -73,7 +73,7 @@ export function Modal({
             onClick: onClose,
             title: closeTitle,
           },
-          e(IconCloseOutline16, { size: 16 }),
+          e(IconCloseOutlineRegular, { size: 16 }),
         ),
       ),
       // Body content

@@ -90,7 +90,7 @@ export class ExaSearchEngine implements SearchEngine {
     }
 
     return {
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }
@@ -199,7 +199,7 @@ export class ExaSearchEngine implements SearchEngine {
     }
 
     return {
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }

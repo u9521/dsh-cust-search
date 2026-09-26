@@ -5,7 +5,7 @@ export default ts.config(
   js.configs.recommended,
   ...ts.configs.recommended,
   {
-    ignores: ['lib/**', 'node_modules/**', 'external/**', '*.d.ts', '.dist/**'],
+    ignores: ['lib/**', 'node_modules/**', '*.d.ts', '.dist/**'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],

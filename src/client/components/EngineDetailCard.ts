@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {
-  IconRefreshOutline16,
-  IconTrashOutline16,
+  IconRefreshOutlineRegular,
+  IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EngineDefinition, EngineSpecificConfig } from '../../types.ts'
 import { useI18n } from '../i18n.ts'
@@ -192,7 +192,9 @@ export function EngineDetailCard({
                   style: { flexShrink: 0 },
                 },
                 e(
-                  isMarkedForClear ? IconRefreshOutline16 : IconTrashOutline16,
+                  isMarkedForClear
+                    ? IconRefreshOutlineRegular
+                    : IconTrashOutlineRegular,
                   {
                     size: 14,
                   },

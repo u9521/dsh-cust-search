@@ -351,7 +351,7 @@ export class ParallelSearchEngine implements SearchEngine {
 
   private toSources(
     results: ParallelResult[],
-    maxResults: number,
+    _maxResults: number,
   ): WebSearchSource[] {
     const sources: WebSearchSource[] = results
       .filter((result) => Boolean(result.url))
@@ -369,6 +369,6 @@ export class ParallelSearchEngine implements SearchEngine {
         }
       })
 
-    return uniqueSources(sources, maxResults)
+    return uniqueSources(sources)
   }
 }

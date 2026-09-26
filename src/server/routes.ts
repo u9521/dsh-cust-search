@@ -1,5 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
+// Side-effect type import: the cordis Context augmentation for `webServer`.
+import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {
   EngineDefinition,
   GetConfigResponse,
@@ -35,15 +38,7 @@ export function registerRoutes(
   ctx: Context,
   options?: RouteOptions,
 ): () => void {
-  const webServer = ctx.get('webServer') as
-    | {
-        register: (opts: {
-          kind: 'exact'
-          path: string
-          handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>
-        }) => () => void
-      }
-    | undefined
+  const webServer = ctx.get('webServer')
 
   if (!webServer) return () => {}
 
@@ -59,13 +54,7 @@ export function registerRoutes(
       try {
         const config = loadStorage()
         const rawDefs = getEngineDefinitions()
-        const credentials = ctx.get('credentials') as
-          | {
-              resolve(
-                ref: string,
-              ): Promise<{ value?: string; source?: string } | undefined>
-            }
-          | undefined
+        const credentials = ctx.get('credentials')
 
         const definitions: EngineDefinition[] = []
         for (const def of rawDefs) {
@@ -79,7 +68,7 @@ export function registerRoutes(
           if (keyRef) {
             if (credentials) {
               try {
-                const hit = await credentials.resolve(keyRef)
+                const hit = await credentials.resolve(keyRef as CredentialRef)
                 if (hit?.value && hit.value.length > 0) {
                   hasKey = true
                   keySource = 'credentials'
@@ -149,12 +138,7 @@ export function registerRoutes(
 
         // Handle credentials updates or removals
         if (payload.keyUpdates && typeof payload.keyUpdates === 'object') {
-          const credentials = ctx.get('credentials') as
-            | {
-                set?(ref: string, value: string): Promise<void>
-                unset?(ref: string): Promise<void>
-              }
-            | undefined
+          const credentials = ctx.get('credentials')
 
           for (const update of Object.values(payload.keyUpdates)) {
             if (
@@ -162,16 +146,11 @@ export function registerRoutes(
               typeof update.keyRef === 'string' &&
               update.keyRef.trim().length > 0
             ) {
-              const ref = update.keyRef.trim()
+              const ref = update.keyRef.trim() as CredentialRef
               if (update.value && update.value.trim().length > 0) {
-                if (typeof credentials?.set === 'function') {
-                  await credentials.set(ref, update.value.trim())
-                }
+                await credentials?.set(ref, update.value.trim())
               } else if (update.value === '') {
-                // Clear credential
-                if (typeof credentials?.unset === 'function') {
-                  await credentials.unset(ref)
-                }
+                await credentials?.unset(ref)
               }
             }
           }
@@ -251,14 +230,10 @@ export function registerRoutes(
           if (options?.resolveApiKey) {
             return options.resolveApiKey(keyRef)
           }
-          const credentials = ctx.get('credentials') as
-            | {
-                resolve(ref: string): Promise<{ value?: string } | undefined>
-              }
-            | undefined
+          const credentials = ctx.get('credentials')
           if (credentials) {
             try {
-              const hit = await credentials.resolve(keyRef)
+              const hit = await credentials.resolve(keyRef as CredentialRef)
               if (hit?.value && hit.value.length > 0) return hit.value
             } catch {}
           }

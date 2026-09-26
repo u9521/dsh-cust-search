@@ -25,7 +25,7 @@ export class SearxngSearchEngine implements SearchEngine {
 
   async search(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     ctx: SearchEngineContext,
     signal?: AbortSignal,
   ): Promise<WebSearchResult> {
@@ -80,7 +80,7 @@ export class SearxngSearchEngine implements SearchEngine {
 
         if (sources.length > 0) {
           return {
-            sources: uniqueSources(sources, maxResults),
+            sources: uniqueSources(sources),
             truncated: false,
           }
         }

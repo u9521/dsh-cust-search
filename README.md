@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.5--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.7--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 English | [中文](README.zh.md)
@@ -46,13 +46,15 @@ Custom Web Search plugin for DeepSeek Harness (DSH) WebUI. Searches through conf
 | **Parallel** | `parallel` | `Keyed` | `PARALLEL_API_KEY` | AI search; anonymous Streamable HTTP MCP when keyless |
 | **Perplexity** | `perplexity` | `Keyed` | `PERPLEXITY_API_KEY` | Sonar generative search with source citations |
 
+> The `deepseek` bridge reuses the official `deepseek-official` provider. `@deepseek-ai/dsh-web` exposes no public "provider by id" accessor, so the bridge reads the web runtime's provider registry directly (one adapter, `src/server/engines/deepseek.ts`) and degrades to "engine unavailable" if that internal shape changes.
+
 ---
 
 ## DSH Version Compatibility
 
 | Plugin Version | Compatible DSH Version | Notes |
 | :--- | :--- | :--- |
-| **main (Current)** | **`>= 0.1.5-rc.1`** | Fully aligned with DSH official specifications; redirects global `searchProvider` |
+| **main (Current)** | **`>= 0.1.7-rc.2`** | Aligned with the DSH client slot, locale, icon, and web-seam contracts; `cordis.patch.yml` pins `web.searchProvider` declaratively |
 
 ---
 
@@ -64,7 +66,7 @@ Install directly from the GitHub `dist` branch (pre-built by CI, no local compil
 dsh plugin --profile web add github:u9521/dsh-cust-search#dist
 ```
 
-Then **restart web** (`dsh web`) and **hard-refresh** your browser (Cmd+Shift+R or Ctrl+F5). The plugin appears as **Web Search** in Settings.
+Then **restart web** (`dsh web`) and **hard-refresh** your browser (Cmd+Shift+R or Ctrl+F5). The configuration page lives on the plugin's own card: **Plugins → Installed → `@local/dsh-cust-search`**.
 
 ### Upgrade
 

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { IconWarningOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconWarningOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EngineDefinition } from '../../../types.ts'
 import { useI18n } from '../../i18n.ts'
 
@@ -22,7 +22,7 @@ export function EmptyState({
     return e(
       'div',
       { className: 'dsh-cs-test-empty-notice warning' },
-      e(IconWarningOutline16, { size: 16 }),
+      e(IconWarningOutlineRegular, { size: 16 }),
       e('span', null, t('testModal.noEnabledEngines')),
     )
   }

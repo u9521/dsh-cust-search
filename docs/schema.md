@@ -82,8 +82,10 @@ Persistent configuration for `dsh-cust-search` is stored in an isolated user dir
 | Field | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `defaultTimeout` | `number` | No | `8000` | Global default request timeout in milliseconds when an engine does not have a dedicated timeout. |
-| `enginesOrder` | `string[]` | Yes | `[]` | Ordered array of **enabled** engine IDs. The array order dictates the sequential execution and fallback priority. |
+| `enginesOrder` | `string[]` | Yes | Built-in order (`deepseek`, `bing`, `ddg`, `searxng`, `tavily`, `anysearch`, `exa`, `keenable`, `firecrawl`, `parallel`, `perplexity`) | Ordered array of **enabled** engine IDs. The array order dictates the sequential execution and fallback priority. |
 | `engineConfigs` | `object` | No | `{}` | Per-engine specific configuration map keyed by engine ID. |
+
+The file is read and written exclusively by the host routes `/api/cust-search/get-config` and `/api/cust-search/set-config`; the settings page never touches it directly.
 
 ---
 

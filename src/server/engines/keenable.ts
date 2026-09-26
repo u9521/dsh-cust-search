@@ -34,7 +34,7 @@ export class KeenableSearchEngine implements SearchEngine {
 
   private async searchRest(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     apiKey: string,
     keyRef: string,
     signal?: AbortSignal,
@@ -106,7 +106,7 @@ export class KeenableSearchEngine implements SearchEngine {
     }
 
     return {
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }
@@ -189,7 +189,7 @@ export class KeenableSearchEngine implements SearchEngine {
   }
 
   /** Parse the `Title: / URL: / Snippets:` block layout returned by the MCP tool. */
-  private parseMcpText(text: string, maxResults: number): WebSearchSource[] {
+  private parseMcpText(text: string, _maxResults: number): WebSearchSource[] {
     const sources: WebSearchSource[] = []
     for (const block of text.split(/\n(?=Title:)/)) {
       const title = block.match(/^Title: (.+)$/m)?.[1]
@@ -215,6 +215,6 @@ export class KeenableSearchEngine implements SearchEngine {
           : {}),
       })
     }
-    return uniqueSources(sources, maxResults)
+    return uniqueSources(sources)
   }
 }

@@ -19,7 +19,7 @@ export class PerplexitySearchEngine implements SearchEngine {
 
   async search(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     ctx: SearchEngineContext,
     signal?: AbortSignal,
   ): Promise<WebSearchResult> {
@@ -95,7 +95,7 @@ export class PerplexitySearchEngine implements SearchEngine {
 
     return {
       ...(answer ? { content: answer } : {}),
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }

@@ -3,15 +3,17 @@ export const BASE_CSS = `
    Base Container & Global Layout
    ==================================================== */
 
-/* Ensure settings options wrapper lets .dsh-cs-container manage scroll and fill full height */
-:has(> .dsh-cs-container),
-[class*="options"]:has(.dsh-cs-container) {
-  padding: 0 !important;
-  overflow: hidden !important;
+/* The host section holding the page becomes the flex column the page fills.
+   The page is content-sized on purpose: the Plugins page around it owns the
+   scroll, so a bundle card grows with its content instead of trapping a second
+   scroll region inside the page. */
+:has(> .dsh-cs-container) {
+  box-sizing: border-box;
   display: flex !important;
   flex-direction: column !important;
-  height: 100% !important;
   min-height: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
 }
 
 .dsh-cs-container {
@@ -20,23 +22,20 @@ export const BASE_CSS = `
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
-  max-height: 100%;
   min-height: 0;
-  overflow: hidden;
 }
 .dsh-cs-container * {
   box-sizing: border-box;
 }
 
-/* Card Lists - dedicated scroll container */
+/* The card stack. Deliberately flex: 0 0 auto (not a zero flex-basis): an
+   auto-height host would collapse a 1 1 0% row to nothing. */
 .dsh-cs-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  flex: 1 1 0%;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
   padding: 0 24px 16px 24px;
 }
 

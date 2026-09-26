@@ -97,7 +97,7 @@ export class FirecrawlSearchEngine implements SearchEngine {
     }
 
     return {
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }

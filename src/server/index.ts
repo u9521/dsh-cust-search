@@ -1,4 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
+// Side-effect type import: the cordis Context augmentation for `webServer`.
+import type {} from '@deepseek-ai/dsh-host-webserver'
 import { CustSearchProvider, CUST_SEARCH_PROVIDER_ID } from './provider.ts'
 import { registerRoutes } from './routes.ts'
 
@@ -8,55 +11,49 @@ export const inject = ['web']
 export function apply(ctx: Context): void {
   const logger = ctx.logger
 
+  /**
+   * Resolve one credential reference. The credentials seam is asked first —
+   * it already layers the process environment and `.env` files — and a bare
+   * environment lookup covers names outside the seam's grammar.
+   */
   const resolveApiKey = async (
     keyRef?: string,
   ): Promise<string | undefined> => {
     if (!keyRef) return undefined
 
-    const credentials = ctx.get('credentials') as
-      | {
-          resolve(ref: string): Promise<{ value?: string } | undefined>
-        }
-      | undefined
-
-    if (credentials) {
-      try {
-        const resolved = await credentials.resolve(keyRef)
-        if (resolved?.value && resolved.value.length > 0) return resolved.value
-      } catch {}
-    }
+    try {
+      const resolved = await ctx
+        .get('credentials')
+        ?.resolve(keyRef as CredentialRef)
+      if (resolved) return resolved.value
+    } catch {}
 
     return process.env[keyRef]
   }
 
-  // Register HTTP routes on webServer if available
+  // HTTP routes, registered only where a web server exists.
   ctx.inject(['webServer'], (sctx: Context) => {
-    sctx.effect(() => {
-      return registerRoutes(sctx, {
-        resolveApiKey,
-        web: ctx.web,
-        logger,
-      })
-    }, 'cust-search: webServer routes')
-  })
-
-  // Create and register search provider
-  const provider = new CustSearchProvider({
-    web: ctx.web,
-    resolveApiKey,
-    logger,
-  })
-
-  ctx.web.registerSearchProvider(provider)
-
-  // Runtime takeover fallback if searchProviderId was not set or unset by patches
-  const webRuntime = ctx.web as unknown as { searchProviderId?: string }
-  if (!webRuntime.searchProviderId) {
-    webRuntime.searchProviderId = provider.id
-    logger.info?.(
-      `cust-search: web.searchProvider was unset, dynamically taking over as "${provider.id}"`,
+    sctx.effect(
+      () =>
+        registerRoutes(sctx, {
+          resolveApiKey,
+          web: ctx.web,
+          logger,
+        }),
+      'cust-search: webServer routes',
     )
-  }
+  })
+
+  // Register the search provider. Which provider the web seam selects is
+  // composition's decision (`cordis.patch.yml` pins `searchProvider`), never a
+  // registration-order or runtime-takeover side effect.
+  ctx.web.registerSearchProvider(
+    new CustSearchProvider({
+      web: ctx.web,
+      resolveApiKey,
+      logger,
+    }),
+  )
 }
 
 export { CustSearchProvider, CUST_SEARCH_PROVIDER_ID }

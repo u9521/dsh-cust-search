@@ -82,8 +82,10 @@
 | 字段名 | 类型 | 必填 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
 | `defaultTimeout` | `number` | 否 | `8000` | 全局默认请求超时时间（毫秒）。当单引擎未配置专属超时时生效。 |
-| `enginesOrder` | `string[]` | 是 | `[]` | **已启用**引擎的顺序列表。数组下标即为搜索时的优先执行与重试顺序。 |
+| `enginesOrder` | `string[]` | 是 | 内置顺序（`deepseek`、`bing`、`ddg`、`searxng`、`tavily`、`anysearch`、`exa`、`keenable`、`firecrawl`、`parallel`、`perplexity`） | **已启用**引擎的顺序列表。数组下标即为搜索时的优先执行与重试顺序。 |
 | `engineConfigs` | `object` | 否 | `{}` | 各搜索引擎的独立个性化配置字典，键名为引擎 ID。 |
+
+该文件仅由宿主路由 `/api/cust-search/get-config` 与 `/api/cust-search/set-config` 读写，设置页面不会直接操作它。
 
 ---
 

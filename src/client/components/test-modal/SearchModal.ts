@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EngineDefinition, EngineSpecificConfig } from '../../../types.ts'
 import { useI18n } from '../../i18n.ts'
 import { Modal } from '../common/Modal.ts'
@@ -150,7 +150,7 @@ export function SearchModal({
       open,
       onClose,
       title: t('testModal.title'),
-      icon: e(IconSearchOutline16, { size: 18 }),
+      icon: e(IconSearchOutlineRegular, { size: 18 }),
       closeTitle: t('testModal.close'),
       footer: modalFooter,
     },

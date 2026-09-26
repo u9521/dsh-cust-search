@@ -29,7 +29,7 @@ export class BingSearchEngine implements SearchEngine {
 
   async search(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     ctx: SearchEngineContext,
     signal?: AbortSignal,
   ): Promise<WebSearchResult> {
@@ -69,7 +69,7 @@ export class BingSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources, maxResults)
+    const limited = uniqueSources(sources)
     if (limited.length === 0) {
       throw new Error('Bing returned 0 results')
     }

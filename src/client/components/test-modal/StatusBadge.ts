@@ -1,8 +1,8 @@
 import * as React from 'react'
 import {
-  IconCheckOutline16,
-  IconLoadingOutline16,
-  IconWarningOutline16,
+  IconCheckOutlineRegular,
+  IconLoadingOutlineRegular,
+  IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useI18n } from '../../i18n.ts'
 import type { EngineTestStatus } from './useEngineTesting.ts'
@@ -20,7 +20,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
     return e(
       'span',
       { className: 'dsh-cs-test-badge loading' },
-      e(IconLoadingOutline16, {
+      e(IconLoadingOutlineRegular, {
         size: 12,
         className: 'dsh-cs-spin',
       }),
@@ -34,7 +34,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
       return e(
         'span',
         { className: 'dsh-cs-test-badge success' },
-        e(IconCheckOutline16, { size: 12 }),
+        e(IconCheckOutlineRegular, { size: 12 }),
         e(
           'span',
           null,
@@ -48,7 +48,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
     return e(
       'span',
       { className: 'dsh-cs-test-badge warning' },
-      e(IconWarningOutline16, { size: 12 }),
+      e(IconWarningOutlineRegular, { size: 12 }),
       e(
         'span',
         null,
@@ -63,7 +63,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
     return e(
       'span',
       { className: 'dsh-cs-test-badge error' },
-      e(IconWarningOutline16, { size: 12 }),
+      e(IconWarningOutlineRegular, { size: 12 }),
       e(
         'span',
         null,

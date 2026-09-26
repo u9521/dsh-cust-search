@@ -1,9 +1,9 @@
 import * as React from 'react'
 import {
-  IconCheckOutline16,
-  IconLoadingOutline16,
-  IconSearchOutline16,
-  IconWarningOutline16,
+  IconCheckOutlineRegular,
+  IconLoadingOutlineRegular,
+  IconSearchOutlineRegular,
+  IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useI18n } from '../i18n.ts'
 
@@ -45,7 +45,7 @@ export function FooterBar({
 
   const noticeClass = isError ? 'error' : isWarning ? 'warning' : 'success'
   const NoticeIcon =
-    isError || isWarning ? IconWarningOutline16 : IconCheckOutline16
+    isError || isWarning ? IconWarningOutlineRegular : IconCheckOutlineRegular
 
   const countText =
     totalCount !== undefined
@@ -83,7 +83,7 @@ export function FooterBar({
           onClick: onOpenTestSearch,
           title: t('footer.testSearch'),
         },
-        e(IconSearchOutline16, { size: 14 }),
+        e(IconSearchOutlineRegular, { size: 14 }),
         e('span', null, t('footer.testSearch')),
       ),
       e(
@@ -95,7 +95,7 @@ export function FooterBar({
           disabled: saving,
         },
         saving
-          ? e(IconLoadingOutline16, { size: 14, className: 'dsh-cs-spin' })
+          ? e(IconLoadingOutlineRegular, { size: 14, className: 'dsh-cs-spin' })
           : null,
         e('span', null, saving ? t('footer.saving') : t('footer.save')),
       ),

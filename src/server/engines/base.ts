@@ -64,10 +64,14 @@ export function extractDdgUrl(rel?: string | null): string | null {
   return rel
 }
 
-export function uniqueSources(
-  sources: WebSearchSource[],
-  limit: number,
-): WebSearchSource[] {
+/**
+ * Drop duplicate URLs, preserving order.
+ *
+ * Deliberately unbounded: `maxResults` belongs to the web seam, which enforces
+ * it on the way back and reports `truncated` itself. An engine whose API takes
+ * a result count applies it at the request layer instead.
+ */
+export function uniqueSources(sources: WebSearchSource[]): WebSearchSource[] {
   const seen = new Set<string>()
   const out: WebSearchSource[] = []
   for (const s of sources) {
@@ -75,7 +79,6 @@ export function uniqueSources(
       seen.add(s.url)
       out.push(s)
     }
-    if (out.length >= limit) break
   }
   return out
 }

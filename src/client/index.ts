@@ -1,133 +1,72 @@
 import * as React from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import { IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { SlotCore, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+// Side-effect type imports: they bring in the cordis Context augmentation for
+// the `locale` service and the `plugins.bundle.config` SlotMap entry.
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { SettingsView } from './components/SettingsView.ts'
-import {
-  createFallbackTranslator,
-  I18nProvider,
-  LOCALE_NS,
-  type Translator,
-} from './i18n.ts'
-import { en, flattenDictionary, zh } from './locales/index.ts'
+import { I18nProvider, type Translator } from './i18n.ts'
+import { en, zh } from './locales/index.ts'
 import { CSS } from './styles.ts'
 
 const e = React.createElement
 
-export const name = 'cust-search-client'
-export const inject = ['slots']
+/** Locale namespace owned by this plugin; merged into LocaleNamespaceMap in locales/index.ts. */
+export const NS = 'cust-search'
 
-interface ClientLocaleService {
-  register: (ns: string, dicts: Record<string, Record<string, string>>) => void
-  bind: (ns: string) => Translator
-  subscribe: (callback: () => void) => () => void
+/**
+ * Package name this plugin is installed under. The Plugins page keys a bundle's
+ * own configuration by that name, so this is where our page registers.
+ */
+export const BUNDLE_NAME = '@local/dsh-cust-search'
+
+export const name = 'cust-search-client'
+export const inject = ['slots', 'locale']
+
+/** The `slots` service surface this plugin uses (`dsh-client-runtime`'s SlotRegistry). */
+interface SlotsService {
+  register: SlotCore['register']
+  inject(key: string, callback: () => void): () => void
+}
+
+/** The page body; `t` is the framework-injected locale seat for {@link NS}. */
+function CustSearchConfig({ t }: { t: TranslateNS<typeof NS> }) {
+  // Engine copy is looked up with computed keys (`engines.<id>.name`), which the
+  // seat's closed key union cannot express; widen to the page's loose shape once.
+  //
+  // The `view` prop is deliberately ignored: a bundle's configuration entry is
+  // only ever rendered with `view: 'page'` (the Plugins page shows the bundle's
+  // manifest description for the one-liner), so there is no summary to draw.
+  return e(I18nProvider, { translator: t as Translator }, e(SettingsView))
 }
 
 export function apply(ctx: Context): void {
-  const slots = ctx.get('slots') as
-    | {
-        inject: (name: string, callback: () => void) => void
-        register: (
-          descriptor: {
-            name: string
-            id: string
-            order: number
-            label: () => string
-            icon?: unknown
-          },
-          component: React.ComponentType,
-        ) => () => void
-      }
-    | undefined
+  // 1. Dictionaries
+  ctx.effect(
+    () => ctx.locale.register(NS, { zh, en }),
+    'cust-search: dictionaries',
+  )
 
-  if (!slots) return
-
-  // 1. Register i18n locale
-  const locale = ctx.get('locale') as ClientLocaleService | undefined
-
-  if (locale) {
-    ctx.effect(() => {
-      locale.register(LOCALE_NS, {
-        zh: flattenDictionary(zh),
-        en: flattenDictionary(en),
-      })
-      return () => {}
-    }, 'cust-search: locale')
-  }
-
-  let translator: Translator = locale
-    ? locale.bind(LOCALE_NS)
-    : createFallbackTranslator()
-
-  if (locale) {
-    ctx.effect(() => {
-      const unsub = locale.subscribe(() => {
-        translator = locale.bind(LOCALE_NS)
-      })
-      return () => {
-        if (typeof unsub === 'function') unsub()
-      }
-    }, 'cust-search: locale updates')
-  }
-
-  // 2. Inject DSH native stylesheet
+  // 2. Stylesheet
   ctx.effect(() => {
     const style = document.createElement('style')
-    style.dataset.plugin = '@local/dsh-cust-search'
+    style.dataset.plugin = BUNDLE_NAME
     style.textContent = CSS
     document.head.appendChild(style)
     return () => style.remove()
   }, 'cust-search: styles')
 
-  // 3. Register settings section
-  slots.inject('settings.section', () =>
+  // 3. The page, on this bundle's own card in the Plugins page
+  // (Plugins → Installed → this package). Registration waits for the page's
+  // `plugins.bundle.config` declaration; a deployment without the Plugins page
+  // simply never contributes one.
+  const slots = ctx.get('slots') as SlotsService | undefined
+  if (!slots) return
+  slots.inject('plugins.bundle.config', () =>
     slots.register(
-      {
-        name: 'settings.section',
-        id: 'cust-search',
-        order: 35,
-        label: () => translator('tabLabel'),
-        icon: IconSearchOutline16,
-      },
-      function CustSearchSettingsSection() {
-        return e(I18nProvider, { translator }, e(SettingsView))
-      },
+      { name: 'plugins.bundle.config', key: BUNDLE_NAME, locale: NS },
+      CustSearchConfig,
     ),
   )
-
-  // 4. Ensure settings nav tab displays official search magnifying glass icon
-  ctx.effect(() => {
-    const searchPathD1 =
-      'M11.894845 6.647401C11.894845 3.725463 9.534486 1.356779 6.623219 1.35657C3.711786 1.35657 1.351635 3.725338 1.351635 6.647401C1.351843 9.569296 3.711911 11.938273 6.623219 11.938273C9.534361 11.938064 11.894637 9.569171 11.894845 6.647401ZM13.245462 6.647401C13.245254 10.317935 10.280401 13.293613 6.623219 13.293821C2.965871 13.293821 0.000204 10.31806 0 6.647401C0 2.976574 2.965746 0 6.623219 0C10.280526 0.000205 13.245462 2.9767 13.245462 6.647401Z'
-    const searchPathD2 =
-      'M16.000417 15.041079L15.044449 16.000433L11.530434 12.473588L12.486298 11.514234L16.000417 15.041079Z'
-
-    const syncNavIcon = () => {
-      const labels = ['Web 搜索', 'Web Search', translator('tabLabel')].filter(
-        Boolean,
-      )
-      const buttons = document.querySelectorAll('button')
-      for (const btn of buttons) {
-        const text = btn.textContent || ''
-        if (labels.some((l) => text.includes(l))) {
-          const svg = btn.querySelector('svg')
-          if (svg && svg.getAttribute('data-icon') !== 'search') {
-            svg.setAttribute('data-icon', 'search')
-            svg.setAttribute('viewBox', '0 0 16 16')
-            svg.innerHTML = `<path d="${searchPathD1}" fill="currentColor"/><path d="${searchPathD2}" fill="currentColor"/>`
-          }
-        }
-      }
-    }
-
-    const observer = new MutationObserver(syncNavIcon)
-    observer.observe(document.body, { childList: true, subtree: true })
-    syncNavIcon()
-
-    return () => observer.disconnect()
-  }, 'cust-search: nav icon')
 }
-
-export * from './components/SettingsView.ts'
-export * from './i18n.ts'
-export * from './locales/index.ts'
-export * from './styles.ts'

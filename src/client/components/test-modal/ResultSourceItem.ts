@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { IconRightUpOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconRightUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WebSearchSource } from '../../../types.ts'
 import { useI18n } from '../../i18n.ts'
 
@@ -80,7 +80,7 @@ export function ResultSourceItem({
           className: 'dsh-cs-test-source-title',
         },
         src.title || src.url,
-        e(IconRightUpOutline16, {
+        e(IconRightUpOutlineRegular, {
           size: 12,
           className: 'dsh-cs-test-external-icon',
         }),

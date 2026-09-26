@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {
-  IconLoadingOutline16,
-  IconWarningOutline16,
+  IconLoadingOutlineRegular,
+  IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CustSearchStorage, EngineDefinition } from '../../types.ts'
 import { fetchConfig, saveConfig } from '../api.ts'
@@ -305,7 +305,7 @@ export function SettingsView(): React.ReactElement {
           color: 'var(--dsw-alias-label-secondary)',
         },
       },
-      e(IconLoadingOutline16, { size: 24, className: 'dsh-cs-spin' }),
+      e(IconLoadingOutlineRegular, { size: 24, className: 'dsh-cs-spin' }),
       e('span', null, t('header.loading')),
     )
   }
@@ -325,7 +325,7 @@ export function SettingsView(): React.ReactElement {
           gap: '8px',
         },
       },
-      e(IconWarningOutline16, { size: 18 }),
+      e(IconWarningOutlineRegular, { size: 18 }),
       e('span', null, errorMessage || t('header.loadFailed')),
     )
   }
@@ -408,7 +408,7 @@ export function SettingsView(): React.ReactElement {
             onChangeOption: handleChangeOption,
           }),
     ),
-    // Docked bottom toolbar
+    // Floating bottom toolbar (sticky inside the scrolling host page)
     e(FooterBar, {
       onSave: handleSave,
       saving,

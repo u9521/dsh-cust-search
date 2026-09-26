@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {
-  IconLoadingOutline16,
-  IconSearchOutline16,
+  IconLoadingOutlineRegular,
+  IconSearchOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useI18n } from '../../i18n.ts'
 
@@ -53,8 +53,8 @@ export function SearchBar({
         disabled,
       },
       isSearching
-        ? e(IconLoadingOutline16, { size: 14, className: 'dsh-cs-spin' })
-        : e(IconSearchOutline16, { size: 14 }),
+        ? e(IconLoadingOutlineRegular, { size: 14, className: 'dsh-cs-spin' })
+        : e(IconSearchOutlineRegular, { size: 14 }),
       e(
         'span',
         null,

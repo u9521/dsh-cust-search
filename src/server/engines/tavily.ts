@@ -86,7 +86,7 @@ export class TavilySearchEngine implements SearchEngine {
     }
 
     return {
-      sources: uniqueSources(sources, maxResults),
+      sources: uniqueSources(sources),
       truncated: false,
     }
   }

@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.5--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.7--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 [English](README.md) | 中文
@@ -46,13 +46,15 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 | **Parallel** | `parallel` | `Keyed` | `PARALLEL_API_KEY` | AI 目标检索，无 Key 走免认证 Streamable HTTP MCP |
 | **Perplexity** | `perplexity` | `Keyed` | `PERPLEXITY_API_KEY` | Sonar 大模型生成式检索，带引用来源 |
 
+> `deepseek` 直连引擎复用官方 `deepseek-official` 提供方。`@deepseek-ai/dsh-web` 未公开「按 ID 取 provider」的接口，因此该引擎直接读取 web 运行时的 provider 注册表（收敛在 `src/server/engines/deepseek.ts` 一处）；若该内部结构变化，引擎会降级为「不可用」而不是让整个搜索失败。
+
 ---
 
 ## DSH 版本兼容性
 
 | 插件版本 | 兼容 DSH 版本 | 说明 |
 | :--- | :--- | :--- |
-| **main（当前）** | **`>= 0.1.5-rc.1`** | 原生对齐 DSH 官方规范，重定向全局 `searchProvider` 契约 |
+| **main（当前）** | **`>= 0.1.7-rc.2`** | 对齐 DSH 客户端插槽、i18n、图标与 web seam 契约；由 `cordis.patch.yml` 声明式固定 `web.searchProvider` |
 
 ---
 
@@ -64,7 +66,7 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 dsh plugin --profile web add github:u9521/dsh-cust-search#dist
 ```
 
-安装后**重启 web**（`dsh web`）并**硬刷新浏览器**（Cmd+Shift+R 或 Ctrl+F5）。插件将以「Web 搜索」出现在设置页中。
+安装后**重启 web**（`dsh web`）并**硬刷新浏览器**（Cmd+Shift+R 或 Ctrl+F5）。配置页在插件自己的卡片上：**插件 → 已安装 → `@local/dsh-cust-search`**。
 
 ### 升级
 

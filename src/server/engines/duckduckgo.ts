@@ -37,7 +37,7 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
 
   private async searchHtml(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     signal?: AbortSignal,
   ): Promise<WebSearchResult> {
     const params = new URLSearchParams({
@@ -73,7 +73,7 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources, maxResults)
+    const limited = uniqueSources(sources)
     if (limited.length === 0) {
       throw new Error('DuckDuckGo HTML returned 0 results')
     }
@@ -86,7 +86,7 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
 
   private async searchLite(
     query: string,
-    maxResults: number,
+    _maxResults: number,
     signal?: AbortSignal,
   ): Promise<WebSearchResult> {
     const params = new URLSearchParams({
@@ -121,7 +121,7 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources, maxResults)
+    const limited = uniqueSources(sources)
     if (limited.length === 0) {
       throw new Error('DuckDuckGo Lite returned 0 results')
     }

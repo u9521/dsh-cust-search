@@ -54,8 +54,9 @@ jobs:
           rm -rf .dist
           mkdir -p .dist/lib
 
-          # Copy minimal required runtime files (only index.js and client.js; no types or sourcemaps)
-          cp lib/index.js lib/client.js .dist/lib/
+          # Copy the runtime artifacts only (no lib/types): the host half, the
+          # browser bundle, and the map its sourceMappingURL points at.
+          cp lib/index.js lib/client.js lib/client.js.map .dist/lib/
           cp cordis.patch.yml LICENSE .dist/
 
           # Generate minimal dist README and sanitized production package.json
