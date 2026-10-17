@@ -18,7 +18,6 @@ export interface UseEngineDragDropReturn {
     id: string,
     initialIdx: number,
   ) => void
-  commitDrop: () => void
 }
 
 export function useEngineDragDrop({
@@ -326,6 +325,5 @@ export function useEngineDragDrop({
     containerRef,
     floatingRef,
     handlePointerDown,
-    commitDrop,
   }
 }

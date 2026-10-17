@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.7--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 [English](README.md) | 中文
@@ -54,7 +54,7 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 
 | 插件版本 | 兼容 DSH 版本 | 说明 |
 | :--- | :--- | :--- |
-| **main（当前）** | **`>= 0.1.7-rc.2`** | 对齐 DSH 客户端插槽、i18n、图标与 web seam 契约；由 `cordis.patch.yml` 声明式固定 `web.searchProvider` |
+| **main（当前）** | **`>= 0.2.1-rc.1`** | 使用类型化 `ctx.slots`、`credentials.describe()` 判断密钥状态、`ctx.storage.domain` 持久化配置；由 `cordis.patch.yml` 声明式固定 `web.searchProvider` |
 
 ---
 
@@ -84,7 +84,7 @@ dsh plugin --profile web update @local/dsh-cust-search
 
 配置保存于独立的用户存储文件中，不修改系统配置文件：
 
-- **存储路径**：`~/.dsh/storages/cust_search.json`
+- **存储路径**：`~/.dsh/storages/cust_search.json`（`ctx.storage.domain` 的 unit 文档：`{ "unit": {...}, "global": {...}, "tables": {} }`）
 - **详细规范**：完整的配置格式与字段定义，请参阅 [存储结构与 JSON Schema 规范](docs/schema.zh.md)。
 
 ---

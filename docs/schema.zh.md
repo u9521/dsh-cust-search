@@ -5,11 +5,22 @@
 `dsh-cust-search` 插件的持久化配置保存在独立的用户存储目录中，不修改系统或宿主配置文件。
 
 - **存储文件路径**：`~/.dsh/storages/cust_search.json`
+- **存储引擎**：`ctx.storage.domain` 的 `cust_search` 域（JSON backend，`single` 布局）。该文件是域 unit 文档，而不是裸配置对象：
+  ```json
+  {
+    "unit": { "name": "cust_search", "version": 1 },
+    "global": { "...下文的配置内容..." },
+    "tables": {}
+  }
+  ```
+  每次写入都会原子地整体重发该 unit；文件损坏或格式不符时域打开会直接失败，而不是被默认值覆盖。
 - **安全特性**：API Key 等敏感凭据通过 DSH 凭据服务 (`ctx.credentials`) 管理，**绝不会明文写入该 JSON 文件**。
 
 ---
 
 ## 1. 完整配置示例
+
+下文的对象即 `global` 的值：
 
 ```json
 {
@@ -87,13 +98,15 @@
 
 该文件仅由宿主路由 `/api/cust-search/get-config` 与 `/api/cust-search/set-config` 读写，设置页面不会直接操作它。
 
+这两个路由注册在 DSH 共享的 `/api` 通道上，由 `@deepseek-ai/dsh-client-connection` 在分发前依次完成 Host/Origin 校验、浏览器或 API 凭据校验，并以 owner Peer 身份放行。未携带 cookie 的请求（包括直接 `curl`）会得到 `401`，Host/Origin 不可信时得到 `403`；请打开 `dsh web` 启动时打印的带 token 链接以建立会话。监听器启用 TLS 时 cookie 会带 `Secure`，非浏览器 API 调用方则通过 `GET /connect?token=...` 换取 API cookie。
+
 ---
 
 ### `engineConfigs` 各引擎独立配置参数
 
 | 引擎 ID | 配置项 | 类型 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **通用（所有引擎）** | `timeout` | `number` | 单引擎独立超时时间（毫秒）。设置后覆盖 `defaultTimeout`。 |
+| **通用（所有引擎）** | `timeout` | `number` | 单次引擎尝试的时间预算（毫秒）。设置后完全取代 `defaultTimeout`；适配器不再自带超时，因此该值是唯一权威，而不是上限。 |
 | **通用（Keyed 引擎）** | `keyRef` | `string` | 动态环境变量/凭据键名（如 `MY_TAVILY_KEY`）。 |
 | `bing` | `market` | `string` | 市场区域代码（如 `zh-CN`, `en-US`），用于本地化优化搜索结果。 |
 | `searxng` | `instances` | `string[]` | 自定义 SearXNG 实例 URL 列表，发起检索时自动负载轮换。 |

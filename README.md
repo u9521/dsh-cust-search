@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.1.7--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 English | [中文](README.zh.md)
@@ -54,7 +54,7 @@ Custom Web Search plugin for DeepSeek Harness (DSH) WebUI. Searches through conf
 
 | Plugin Version | Compatible DSH Version | Notes |
 | :--- | :--- | :--- |
-| **main (Current)** | **`>= 0.1.7-rc.2`** | Aligned with the DSH client slot, locale, icon, and web-seam contracts; `cordis.patch.yml` pins `web.searchProvider` declaratively |
+| **main (Current)** | **`>= 0.2.1-rc.1`** | Typed `ctx.slots`, `credentials.describe()` for key status, and `ctx.storage.domain` for configuration; `cordis.patch.yml` pins `web.searchProvider` declaratively |
 
 ---
 
@@ -84,7 +84,7 @@ Then **restart web** and **hard-refresh** the browser.
 
 Configuration is stored in an isolated user directory without modifying system settings:
 
-- **Storage Path**: `~/.dsh/storages/cust_search.json`
+- **Storage Path**: `~/.dsh/storages/cust_search.json` (a `ctx.storage.domain` unit: `{ "unit": {...}, "global": {...}, "tables": {} }`)
 - **Schema Details**: For complete schema specifications and field definitions, see [Storage Schema Specification](docs/schema.md).
 
 ---

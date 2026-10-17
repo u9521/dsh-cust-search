@@ -1,10 +1,13 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { DEFAULT_USER_AGENT } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const DEFAULT_INSTANCES = [
   'https://opnxng.com',
@@ -19,42 +22,38 @@ export class SearxngSearchEngine implements SearchEngine {
   readonly id = 'searxng'
   readonly type = 'free' as const
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    _maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const customInstances = ctx.engineConfig.instances as string[] | undefined
+    const custom = ctx.engineConfig.instances
     const instances =
-      Array.isArray(customInstances) && customInstances.length > 0
-        ? customInstances
-        : DEFAULT_INSTANCES
+      Array.isArray(custom) && custom.length > 0 ? custom : DEFAULT_INSTANCES
 
     const errors: string[] = []
 
     for (const base of instances) {
-      try {
-        const params = new URLSearchParams({ q: query, format: 'json' })
-        const ctrl = new AbortController()
-        const timer = setTimeout(() => ctrl.abort(), 6000)
-        const onAbort = () => ctrl.abort()
-        signal?.addEventListener('abort', onAbort)
+      // One shared budget: instances are fallbacks of each other, not separate
+      // calls, so the first slow host does not get a fresh 6 s each.
+      if (signal.aborted) break
 
-        const response = await fetch(`${base}/search?${params}`, {
-          headers: {
-            'user-agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-            accept: 'application/json',
-          },
-          signal: ctrl.signal,
+      try {
+        const params = new URLSearchParams({
+          q: request.query,
+          format: 'json',
         })
-        clearTimeout(timer)
-        signal?.removeEventListener('abort', onAbort)
+        const response = await engineRequest(
+          `SearXNG ${base}`,
+          `${base}/search?${params}`,
+          {
+            headers: {
+              'user-agent': DEFAULT_USER_AGENT,
+              accept: 'application/json',
+            },
+          },
+          signal,
+        )
 
         if (!response.ok) {
           errors.push(`${base}: HTTP ${response.status}`)
@@ -78,17 +77,13 @@ export class SearxngSearchEngine implements SearchEngine {
             ...(r.content ? { snippet: String(r.content) } : {}),
           }))
 
-        if (sources.length > 0) {
-          return {
-            sources: uniqueSources(sources),
-            truncated: false,
-          }
-        }
+        if (sources.length > 0) return toResult(this.id, sources)
         errors.push(`${base}: 0 results`)
       } catch (error) {
         errors.push(
           `${base}: ${error instanceof Error ? error.message : String(error)}`,
         )
+        if (signal.aborted) break
       }
     }
 

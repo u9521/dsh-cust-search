@@ -1,5 +1,5 @@
 import * as React from 'react'
-import type { CustSearchStorage, EngineDefinition } from '../../../types.ts'
+import type { EngineDefinition } from '../../../types.ts'
 import { useI18n } from '../../i18n.ts'
 import {
   DropPlaceholderCard,
@@ -8,10 +8,8 @@ import {
 
 const e = React.createElement
 
-export interface EngineSortListProps {
-  config: CustSearchStorage
-  enabledDefs: EngineDefinition[]
-  defMap: Map<string, EngineDefinition>
+/** What the sort view needs from the drag hook. */
+export interface SortDragState {
   draggedId: string | null
   dragActive: boolean
   targetIndex: number | null
@@ -25,19 +23,24 @@ export interface EngineSortListProps {
   ) => void
 }
 
+export interface EngineSortListProps {
+  /** Enabled engines, in configured order. */
+  enabledDefs: EngineDefinition[]
+  /** Per-engine timeout and the global default, for the preview cards. */
+  timeouts: Record<string, number | undefined>
+  defaultTimeout: number
+  drag: SortDragState
+}
+
 export function EngineSortList({
-  config,
   enabledDefs,
-  defMap,
-  draggedId,
-  dragActive,
-  targetIndex,
-  cardWidth,
-  initialTransform,
-  floatingRef,
-  handlePointerDown,
+  timeouts,
+  defaultTimeout,
+  drag,
 }: EngineSortListProps): React.ReactElement {
   const { t } = useI18n()
+  const { draggedId, dragActive, targetIndex, cardWidth, initialTransform } =
+    drag
 
   if (enabledDefs.length === 0) {
     return e(
@@ -56,16 +59,16 @@ export function EngineSortList({
     )
   }
 
-  if (dragActive && draggedDefIdValid(draggedId, defMap)) {
-    const activeDraggedId = draggedId as string
-    const remainingDefs = enabledDefs.filter((d) => d.id !== activeDraggedId)
-    const draggedDef = defMap.get(activeDraggedId)!
+  const draggedDef = enabledDefs.find((def) => def.id === draggedId)
+
+  if (dragActive && draggedDef) {
+    const remainingDefs = enabledDefs.filter((def) => def.id !== draggedDef.id)
     const currentTarget = Math.max(
       0,
       Math.min(targetIndex ?? 0, remainingDefs.length),
     )
     const elements: React.ReactElement[] = []
-    let remPtr = 0
+    let remainingPtr = 0
     const totalSlots = remainingDefs.length + 1
 
     for (let slot = 0; slot < totalSlots; slot++) {
@@ -78,35 +81,33 @@ export function EngineSortList({
           }),
         )
       } else {
-        const def = remainingDefs[remPtr]
+        const def = remainingDefs[remainingPtr]
         if (def) {
-          const engineConf = config.engineConfigs[def.id] ?? {}
           elements.push(
             e(SortablePreviewCard, {
               key: def.id,
               engineDef: def,
               orderIndex: slot + 1,
-              timeout: engineConf.timeout,
-              defaultTimeout: config.defaultTimeout,
+              timeout: timeouts[def.id],
+              defaultTimeout,
               onPointerDown: (ev: React.PointerEvent) =>
-                handlePointerDown(ev, def.id, slot),
+                drag.handlePointerDown(ev, def.id, slot),
             }),
           )
-          remPtr++
+          remainingPtr++
         }
       }
     }
 
-    // Render the elevated floating card following the cursor with high opacity (0.9)
-    const engineConf = config.engineConfigs[draggedDef.id] ?? {}
+    // The elevated card that follows the cursor, at full opacity.
     elements.push(
       e(SortablePreviewCard, {
         key: `__floating_${draggedDef.id}__`,
-        ref: floatingRef as React.LegacyRef<HTMLDivElement>,
+        ref: drag.floatingRef as React.LegacyRef<HTMLDivElement>,
         engineDef: draggedDef,
         orderIndex: currentTarget + 1,
-        timeout: engineConf.timeout,
-        defaultTimeout: config.defaultTimeout,
+        timeout: timeouts[draggedDef.id],
+        defaultTimeout,
         className: 'dsh-cs-sort-card-floating',
         style: {
           width: cardWidth > 0 ? `${cardWidth}px` : undefined,
@@ -121,24 +122,16 @@ export function EngineSortList({
   return e(
     React.Fragment,
     null,
-    enabledDefs.map((def, idx) => {
-      const engineConf = config.engineConfigs[def.id] ?? {}
-      return e(SortablePreviewCard, {
+    enabledDefs.map((def, idx) =>
+      e(SortablePreviewCard, {
         key: def.id,
         engineDef: def,
         orderIndex: idx + 1,
-        timeout: engineConf.timeout,
-        defaultTimeout: config.defaultTimeout,
+        timeout: timeouts[def.id],
+        defaultTimeout,
         onPointerDown: (ev: React.PointerEvent) =>
-          handlePointerDown(ev, def.id, idx),
-      })
-    }),
+          drag.handlePointerDown(ev, def.id, idx),
+      }),
+    ),
   )
-}
-
-function draggedDefIdValid(
-  id: string | null,
-  map: Map<string, EngineDefinition>,
-): boolean {
-  return typeof id === 'string' && map.has(id)
 }

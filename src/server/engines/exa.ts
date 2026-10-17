@@ -1,10 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const EXA_REST_URL = 'https://api.exa.ai/search'
 const EXA_MCP_URL = 'https://mcp.exa.ai/mcp'
@@ -14,47 +16,42 @@ export class ExaSearchEngine implements SearchEngine {
   readonly type = 'keyed' as const
   readonly defaultKeyRef = 'EXA_API_KEY'
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     const keyRef = ctx.engineConfig.keyRef || this.defaultKeyRef
     const key = await ctx.resolveApiKey(keyRef)
-    if (key) {
-      return await this.searchRest(query, maxResults, key, signal)
-    }
-    return await this.searchMcp(query, maxResults, signal)
+    return key
+      ? await this.searchRest(request, key, signal)
+      : await this.searchMcp(request, signal)
   }
 
   private async searchRest(
-    query: string,
-    maxResults: number,
+    request: SearchRequest,
     apiKey: string,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const body = {
-      query,
-      type: 'auto',
-      contents: { highlights: { highlightsPerUrl: 1 } },
-      numResults: maxResults || 5,
-    }
-
-    const response = await fetch(EXA_REST_URL, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        'content-type': 'application/json',
-        accept: 'application/json',
+    const response = await engineRequest(
+      'Exa',
+      EXA_REST_URL,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          query: request.query,
+          type: 'auto',
+          contents: { highlights: { highlightsPerUrl: 1 } },
+          numResults: request.maxResults || 5,
+        }),
       },
-      body: JSON.stringify(body),
-      ...(signal !== undefined ? { signal } : {}),
-    })
+      signal,
+    )
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
@@ -72,42 +69,29 @@ export class ExaSearchEngine implements SearchEngine {
       }>
     }
 
-    const sources: WebSearchSource[] = (data.results ?? [])
-      .map((r) => {
-        const snippet = r.highlights?.find((h) => h.trim().length > 0)
-        if (!r.url || !snippet) return null
-        return {
-          url: r.url,
-          ...(r.title ? { title: r.title } : {}),
-          snippet,
-          ...(r.publishedDate ? { publishedAt: r.publishedDate } : {}),
-        }
+    const sources: WebSearchSource[] = []
+    for (const r of data.results ?? []) {
+      const snippet = r.highlights?.find((h) => h.trim().length > 0)
+      if (!r.url || !snippet) continue
+      sources.push({
+        url: r.url,
+        ...(r.title ? { title: r.title } : {}),
+        snippet,
+        ...(r.publishedDate ? { publishedAt: r.publishedDate } : {}),
       })
-      .filter(Boolean) as WebSearchSource[]
-
-    if (sources.length === 0) {
-      throw new Error('Exa REST returned 0 results')
     }
 
-    return {
-      sources: uniqueSources(sources),
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 
   private async searchMcp(
-    query: string,
-    maxResults: number,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      response = await fetch(EXA_MCP_URL, {
+    const response = await engineRequest(
+      'Exa MCP',
+      EXA_MCP_URL,
+      {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -119,32 +103,26 @@ export class ExaSearchEngine implements SearchEngine {
           method: 'tools/call',
           params: {
             name: 'web_search_exa',
-            arguments: { query, numResults: maxResults || 5 },
+            arguments: {
+              query: request.query,
+              numResults: request.maxResults || 5,
+            },
           },
         }),
-        signal: controller.signal,
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `Exa MCP request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+      },
+      signal,
+    )
 
     if (!response.ok) {
       throw new Error(`Exa MCP error (HTTP ${response.status})`)
     }
 
     const text = await response.text()
-    const lines = text.split('\n')
     let json: {
       error?: { message?: string }
       result?: { content?: Array<{ type: string; text?: string }> }
     } | null = null
-    for (const line of lines) {
+    for (const line of text.split('\n')) {
       if (line.startsWith('data: ')) {
         try {
           json = JSON.parse(line.slice(6))
@@ -159,19 +137,14 @@ export class ExaSearchEngine implements SearchEngine {
       )
     }
 
-    const content = (json.result?.content ?? []) as Array<{
-      type: string
-      text?: string
-    }>
-    const textBlocks = content
+    const textBlocks = (json.result?.content ?? [])
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('\n')
 
-    const blocks = textBlocks.split(/\n(?=Title:)/)
     const sources: WebSearchSource[] = []
 
-    for (const block of blocks) {
+    for (const block of textBlocks.split(/\n(?=Title:)/)) {
       const title = block.match(/^Title: (.+)$/m)?.[1]
       const url = block.match(/^URL: (\S+)$/m)?.[1]
       const published = block.match(/^Published: (.+)$/m)?.[1]
@@ -187,20 +160,13 @@ export class ExaSearchEngine implements SearchEngine {
       sources.push({
         url,
         ...(title ? { title } : {}),
-        ...(highlights ? { snippet: highlights.slice(0, 300) } : {}),
+        ...(highlights ? { snippet: highlights } : {}),
         ...(published && /^\d{4}-\d{2}-\d{2}/.test(published)
           ? { publishedAt: published }
           : {}),
       })
     }
 
-    if (sources.length === 0) {
-      throw new Error('Exa MCP returned 0 results')
-    }
-
-    return {
-      sources: uniqueSources(sources),
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 }

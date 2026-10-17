@@ -1,15 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import {
-  extractDdgUrl,
-  fetchHtmlWithRetry,
-  stripTags,
-  uniqueSources,
-} from './base.ts'
+import { extractDdgUrl, fetchHtmlWithRetry, stripTags } from './base.ts'
+import { toResult } from './result.ts'
 
 const DDG_HTML_URL = 'https://html.duckduckgo.com/html/'
 const DDG_LITE_URL = 'https://lite.duckduckgo.com/lite/'
@@ -18,33 +15,26 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
   readonly id = 'ddg'
   readonly type = 'free' as const
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    _ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    _ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     try {
-      return await this.searchHtml(query, maxResults, signal)
-    } catch {
-      return await this.searchLite(query, maxResults, signal)
+      return await this.searchHtml(request, signal)
+    } catch (error) {
+      // A budget expiry is terminal: the lite channel would be given the same
+      // already-exhausted signal and could only fail again.
+      if (signal.aborted || signal.aborted) throw error
+      return await this.searchLite(request, signal)
     }
   }
 
   private async searchHtml(
-    query: string,
-    _maxResults: number,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const params = new URLSearchParams({
-      q: query,
-      adlt: '-1',
-    })
-
+    const params = new URLSearchParams({ q: request.query, adlt: '-1' })
     const html = await fetchHtmlWithRetry(`${DDG_HTML_URL}?${params}`, signal)
     const blocks =
       html.match(
@@ -73,27 +63,14 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources)
-    if (limited.length === 0) {
-      throw new Error('DuckDuckGo HTML returned 0 results')
-    }
-
-    return {
-      sources: limited,
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 
   private async searchLite(
-    query: string,
-    _maxResults: number,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const params = new URLSearchParams({
-      q: query,
-      adlt: '-1',
-    })
-
+    const params = new URLSearchParams({ q: request.query, adlt: '-1' })
     const html = await fetchHtmlWithRetry(`${DDG_LITE_URL}?${params}`, signal)
     const linkMatches =
       html.match(/<a[^>]*class=['"]result-link['"][^>]*>[\s\S]*?<\/a>/g) ?? []
@@ -121,14 +98,6 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources)
-    if (limited.length === 0) {
-      throw new Error('DuckDuckGo Lite returned 0 results')
-    }
-
-    return {
-      sources: limited,
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 }

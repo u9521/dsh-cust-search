@@ -1,6 +1,30 @@
 import * as React from 'react'
 import type { EngineSpecificConfig, WebSearchResult } from '../../../types.ts'
 import { testEngine } from '../../api.ts'
+import type { EngineTestFailure } from '../../api.ts'
+import { useI18n } from '../../i18n.ts'
+
+/**
+ * Render one failure.
+ *
+ * The transport decides what kind of failure it is; the page only supplies the
+ * words.
+ */
+function describeFailure(
+  failure: EngineTestFailure,
+  t: (key: string) => string,
+): string {
+  switch (failure.kind) {
+    case 'auth':
+      return t(failure.messageKey)
+    case 'timeout':
+      return t('test.timeout')
+    case 'cancelled':
+      return ''
+    case 'host':
+      return failure.message
+  }
+}
 
 export interface EngineTestStatus {
   state: 'idle' | 'loading' | 'success' | 'error'
@@ -42,6 +66,7 @@ export function useEngineTesting({
   keyInputs,
   open,
 }: UseEngineTestingOptions): UseEngineTestingReturn {
+  const { t } = useI18n()
   const [query, setQuery] = React.useState<string>('')
   const [isSearching, setIsSearching] = React.useState<boolean>(false)
   const [engineStates, setEngineStates] = React.useState<
@@ -71,53 +96,45 @@ export function useEngineTesting({
         [engineId]: { state: 'loading' },
       }))
 
-      try {
-        const engineConf = engineConfigs[engineId]
-        const tempKey = keyInputs[engineId]
+      const engineConf = engineConfigs[engineId]
+      const tempKey = keyInputs[engineId]
 
-        const res = await testEngine(
-          {
-            engineId,
-            query: searchQuery,
-            maxResults: 5,
-            engineConfig: engineConf,
-            tempApiKey: tempKey !== undefined ? tempKey : undefined,
-          },
-          signal,
-        )
+      const outcome = await testEngine(
+        {
+          engineId,
+          query: searchQuery,
+          maxResults: 5,
+          engineConfig: engineConf,
+          tempApiKey: tempKey !== undefined ? tempKey : undefined,
+        },
+        signal,
+      )
 
-        if (res.ok && res.data.result) {
-          setEngineStates((prev) => ({
-            ...prev,
-            [engineId]: {
-              state: 'success',
-              durationMs: res.data.durationMs,
-              result: res.data.result,
-            },
-          }))
-        } else {
-          setEngineStates((prev) => ({
-            ...prev,
-            [engineId]: {
-              state: 'error',
-              durationMs: res.data.durationMs,
-              error: res.data.error || 'Unknown search error',
-            },
-          }))
-        }
-      } catch (err) {
-        if (signal?.aborted) return
+      if (outcome.ok && outcome.result) {
         setEngineStates((prev) => ({
           ...prev,
           [engineId]: {
-            state: 'error',
-            durationMs: 0,
-            error: err instanceof Error ? err.message : String(err),
+            state: 'success',
+            durationMs: outcome.durationMs,
+            result: outcome.result,
           },
         }))
+        return
       }
+
+      // A cancelled call leaves the card alone: the modal is closing.
+      if (outcome.failure?.kind === 'cancelled') return
+
+      setEngineStates((prev) => ({
+        ...prev,
+        [engineId]: {
+          state: 'error',
+          durationMs: outcome.durationMs,
+          error: outcome.failure ? describeFailure(outcome.failure, t) : '',
+        },
+      }))
     },
-    [engineConfigs, keyInputs],
+    [engineConfigs, keyInputs, t],
   )
 
   // Run test across all enabled engines

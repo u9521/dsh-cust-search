@@ -1,22 +1,12 @@
-import type {
-  SearchEngine,
-  SearchEngineContext,
-  WebSearchResult,
-  WebSearchSource,
-} from '../../types.ts'
+import type { WebSearchSource } from '../../types.ts'
 
-export type {
-  SearchEngine,
-  SearchEngineContext,
-  WebSearchResult,
-  WebSearchSource,
-}
+export type { WebSearchSource }
 
 export const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 export const DEFAULT_ACCEPT_LANG = 'zh-CN,zh;q=0.9,en;q=0.8'
 
-export function decodeEntities(text: string): string {
+function decodeEntities(text: string): string {
   return String(text)
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -26,19 +16,6 @@ export function decodeEntities(text: string): string {
     .replace(/&#x27;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-}
-
-export const SNIPPET_NOISE =
-  /\b(sign up|sign in|log in|login|subscribe( to| for)?|member[- ]?only|become a member|create (a )?free account|read more|continue reading|story continues|get started|install (the )?app|view on|medium membership|join \w+ for free|get updates from this writer|stories in your inbox|remember me for|unlock this|free to read|become a patron)\b/gi
-
-export function cleanSnippet(text?: string): string {
-  if (!text) return ''
-  return String(text)
-    .replace(SNIPPET_NOISE, ' ')
-    .replace(/^\s*(#{1,6}\s*|\[\s*x?\s*\]\s*|-\s*\[\s*x?\s*\]\s*|>\s*)/gm, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 300)
 }
 
 export function stripTags(html: string): string {
@@ -65,51 +42,30 @@ export function extractDdgUrl(rel?: string | null): string | null {
 }
 
 /**
- * Drop duplicate URLs, preserving order.
+ * Fetch one HTML page for a scraping engine.
  *
- * Deliberately unbounded: `maxResults` belongs to the web seam, which enforces
- * it on the way back and reports `truncated` itself. An engine whose API takes
- * a result count applies it at the request layer instead.
+ * The call's time budget already arrived as `signal`, so this adds no timer of
+ * its own — it used to schedule a 12 s one that outlived every failure path.
+ *
+ * @param url - the page to fetch.
+ * @param signal - the call's abort signal, from the caller's `Deadline`.
+ * @param acceptLang - `Accept-Language` header value.
+ * @returns the response body.
+ * @throws when the response is not OK or carries an anti-bot challenge.
  */
-export function uniqueSources(sources: WebSearchSource[]): WebSearchSource[] {
-  const seen = new Set<string>()
-  const out: WebSearchSource[] = []
-  for (const s of sources) {
-    if (s.url && !seen.has(s.url)) {
-      seen.add(s.url)
-      out.push(s)
-    }
-  }
-  return out
-}
-
 export async function fetchHtml(
   url: string,
-  signal?: AbortSignal,
+  signal: AbortSignal,
   acceptLang?: string,
 ): Promise<string> {
-  let response: Response
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 12000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-    response = await fetch(url, {
-      headers: {
-        'user-agent': DEFAULT_USER_AGENT,
-        'accept-language': acceptLang ?? DEFAULT_ACCEPT_LANG,
-      },
-      signal: controller.signal,
-      redirect: 'follow',
-    })
-    clearTimeout(timer)
-    signal?.removeEventListener('abort', onAbort)
-  } catch (error) {
-    if (signal?.aborted) throw error
-    throw new Error(
-      `connection error: ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
+  const response = await fetch(url, {
+    headers: {
+      'user-agent': DEFAULT_USER_AGENT,
+      'accept-language': acceptLang ?? DEFAULT_ACCEPT_LANG,
+    },
+    signal,
+    redirect: 'follow',
+  })
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} from ${url.split('?')[0]}`)
@@ -124,9 +80,18 @@ export async function fetchHtml(
   return html
 }
 
+/**
+ * Fetch one HTML page, retrying once on a transport failure or an empty body.
+ *
+ * @param url - the page to fetch.
+ * @param signal - the call's abort signal.
+ * @param acceptLang - `Accept-Language` header value.
+ * @param maxAttempts - total attempts; the caller's deadline still bounds them.
+ * @returns the response body.
+ */
 export async function fetchHtmlWithRetry(
   url: string,
-  signal?: AbortSignal,
+  signal: AbortSignal,
   acceptLang?: string,
   maxAttempts = 2,
 ): Promise<string> {
@@ -137,7 +102,7 @@ export async function fetchHtmlWithRetry(
       if (html.length > 500) return html
     } catch (error) {
       lastError = error
-      if (signal?.aborted) throw error
+      if (signal.aborted) throw error
     }
     if (attempt < maxAttempts) {
       await new Promise((r) => setTimeout(r, 1000))

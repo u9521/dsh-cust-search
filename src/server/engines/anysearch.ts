@@ -1,10 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const ANYSEARCH_URL = 'https://api.anysearch.com/v1/search'
 
@@ -12,38 +14,24 @@ export class AnysearchSearchEngine implements SearchEngine {
   readonly id = 'anysearch'
   readonly type = 'free' as const
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    _ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    _ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      response = await fetch(ANYSEARCH_URL, {
+    const response = await engineRequest(
+      'AnySearch',
+      ANYSEARCH_URL,
+      {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ query, max_results: maxResults || 5 }),
-        signal: controller.signal,
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `AnySearch request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+        body: JSON.stringify({
+          query: request.query,
+          max_results: request.maxResults || 5,
+        }),
+      },
+      signal,
+    )
 
     if (!response.ok) {
       throw new Error(`AnySearch API error (HTTP ${response.status})`)
@@ -61,22 +49,14 @@ export class AnysearchSearchEngine implements SearchEngine {
       throw new Error(`AnySearch API error: ${data.message ?? data.code}`)
     }
 
-    const results = data.data?.results ?? []
-    const sources: WebSearchSource[] = results
+    const sources: WebSearchSource[] = (data.data?.results ?? [])
       .filter((r) => Boolean(r.url))
       .map((r) => ({
         url: r.url!,
         ...(r.title ? { title: String(r.title) } : {}),
-        ...(r.snippet ? { snippet: String(r.snippet).slice(0, 300) } : {}),
+        ...(r.snippet ? { snippet: String(r.snippet) } : {}),
       }))
 
-    if (sources.length === 0) {
-      throw new Error('AnySearch returned 0 results')
-    }
-
-    return {
-      sources: uniqueSources(sources),
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 }

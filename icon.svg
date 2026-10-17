@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Custom Web Search">
+  <!-- Glass: a translucent blue wash, so the lens reads as glass at any size. -->
+  <circle cx="26" cy="26" r="17" fill="#2563EB" fill-opacity="0.16"/>
+
+  <!-- Ring: opens toward the handle (72.5° to 377.5°) so the two read as one object. -->
+  <path d="M31.11 42.21A17 17 0 1 1 42.21 31.11" fill="none" stroke="#3B82F6" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- What the lens is looking at: three results, shortening downward. -->
+  <g stroke="#38BDF8" stroke-width="2.9" stroke-linecap="round">
+    <line x1="18" y1="20.5" x2="34" y2="20.5"/>
+    <line x1="18" y1="26" x2="30" y2="26"/>
+    <line x1="18" y1="31.5" x2="32.5" y2="31.5"/>
+  </g>
+
+  <!-- Handle: continues the ring's opening at the same 45°. -->
+  <line x1="38.5" y1="38.5" x2="53" y2="53" stroke="#38BDF8" stroke-width="6" stroke-linecap="round"/>
+</svg>

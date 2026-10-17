@@ -1,10 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const KEENABLE_URL = 'https://api.keenable.ai/v1/search'
 const KEENABLE_MCP_URL = 'https://api.keenable.ai/mcp'
@@ -14,58 +16,39 @@ export class KeenableSearchEngine implements SearchEngine {
   readonly type = 'keyed' as const
   readonly defaultKeyRef = 'KEENABLE_API_KEY'
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     const keyRef = ctx.engineConfig.keyRef || this.defaultKeyRef
     const apiKey = await ctx.resolveApiKey(keyRef)
-    if (apiKey) {
-      return await this.searchRest(query, maxResults, apiKey, keyRef, signal)
-    }
-    return await this.searchMcp(query, maxResults, signal)
+    return apiKey
+      ? await this.searchRest(request, apiKey, keyRef, signal)
+      : await this.searchMcp(request, signal)
   }
 
   private async searchRest(
-    query: string,
-    _maxResults: number,
+    request: SearchRequest,
     apiKey: string,
     keyRef: string,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 20000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      response = await fetch(KEENABLE_URL, {
+    const response = await engineRequest(
+      'Keenable',
+      KEENABLE_URL,
+      {
         method: 'POST',
         headers: {
           'x-api-key': apiKey,
           'content-type': 'application/json',
           accept: 'application/json',
         },
-        body: JSON.stringify({ query, mode: 'realtime' }),
-        signal: controller.signal,
+        body: JSON.stringify({ query: request.query, mode: 'realtime' }),
         redirect: 'error',
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `Keenable request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+      },
+      signal,
+    )
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
@@ -96,34 +79,22 @@ export class KeenableSearchEngine implements SearchEngine {
         return {
           url: r.url!,
           ...(r.title ? { title: String(r.title) } : {}),
-          ...(snippet ? { snippet: String(snippet).slice(0, 300) } : {}),
+          ...(snippet ? { snippet: String(snippet) } : {}),
           ...(r.published_at ? { publishedAt: String(r.published_at) } : {}),
         }
       })
 
-    if (sources.length === 0) {
-      throw new Error('Keenable returned 0 results')
-    }
-
-    return {
-      sources: uniqueSources(sources),
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 
   private async searchMcp(
-    query: string,
-    maxResults: number,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 25000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      response = await fetch(KEENABLE_MCP_URL, {
+    const response = await engineRequest(
+      'Keenable MCP',
+      KEENABLE_MCP_URL,
+      {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -135,20 +106,12 @@ export class KeenableSearchEngine implements SearchEngine {
           method: 'tools/call',
           params: {
             name: 'search_web_pages',
-            arguments: { query },
+            arguments: { query: request.query },
           },
         }),
-        signal: controller.signal,
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `Keenable MCP request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+      },
+      signal,
+    )
 
     if (!response.ok) {
       throw new Error(`Keenable MCP error (HTTP ${response.status})`)
@@ -177,19 +140,11 @@ export class KeenableSearchEngine implements SearchEngine {
       throw new Error(`Keenable MCP error: ${text.slice(0, 200)}`)
     }
 
-    const sources = this.parseMcpText(text, maxResults)
-    if (sources.length === 0) {
-      throw new Error('Keenable MCP returned 0 results')
-    }
-
-    return {
-      sources,
-      truncated: false,
-    }
+    return toResult(this.id, this.parseMcpText(text))
   }
 
   /** Parse the `Title: / URL: / Snippets:` block layout returned by the MCP tool. */
-  private parseMcpText(text: string, _maxResults: number): WebSearchSource[] {
+  private parseMcpText(text: string): WebSearchSource[] {
     const sources: WebSearchSource[] = []
     for (const block of text.split(/\n(?=Title:)/)) {
       const title = block.match(/^Title: (.+)$/m)?.[1]
@@ -209,12 +164,12 @@ export class KeenableSearchEngine implements SearchEngine {
       sources.push({
         url,
         ...(title ? { title } : {}),
-        ...(snippets ? { snippet: snippets.slice(0, 300) } : {}),
+        ...(snippets ? { snippet: snippets } : {}),
         ...(published && /^\d{4}-\d{2}-\d{2}/.test(published)
           ? { publishedAt: published }
           : {}),
       })
     }
-    return uniqueSources(sources)
+    return sources
   }
 }

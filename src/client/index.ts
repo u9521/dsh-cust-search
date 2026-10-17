@@ -1,8 +1,10 @@
 import * as React from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import type { SlotCore, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 // Side-effect type imports: they bring in the cordis Context augmentation for
-// the `locale` service and the `plugins.bundle.config` SlotMap entry.
+// the typed `slots` registry, the `locale` service, and the
+// `plugins.bundle.config` SlotMap entry.
+import type {} from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { SettingsView } from './components/SettingsView.ts'
@@ -23,12 +25,6 @@ export const BUNDLE_NAME = '@local/dsh-cust-search'
 
 export const name = 'cust-search-client'
 export const inject = ['slots', 'locale']
-
-/** The `slots` service surface this plugin uses (`dsh-client-runtime`'s SlotRegistry). */
-interface SlotsService {
-  register: SlotCore['register']
-  inject(key: string, callback: () => void): () => void
-}
 
 /** The page body; `t` is the framework-injected locale seat for {@link NS}. */
 function CustSearchConfig({ t }: { t: TranslateNS<typeof NS> }) {
@@ -61,10 +57,8 @@ export function apply(ctx: Context): void {
   // (Plugins → Installed → this package). Registration waits for the page's
   // `plugins.bundle.config` declaration; a deployment without the Plugins page
   // simply never contributes one.
-  const slots = ctx.get('slots') as SlotsService | undefined
-  if (!slots) return
-  slots.inject('plugins.bundle.config', () =>
-    slots.register(
+  ctx.slots.inject('plugins.bundle.config', () =>
+    ctx.slots.register(
       { name: 'plugins.bundle.config', key: BUNDLE_NAME, locale: NS },
       CustSearchConfig,
     ),

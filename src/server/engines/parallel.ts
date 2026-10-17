@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const PARALLEL_URL = 'https://api.parallel.ai/v1/search'
 const PARALLEL_MCP_URL = 'https://search.parallel.ai/mcp'
@@ -36,67 +38,46 @@ export class ParallelSearchEngine implements SearchEngine {
   readonly type = 'keyed' as const
   readonly defaultKeyRef = 'PARALLEL_API_KEY'
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     const keyRef = ctx.engineConfig.keyRef || this.defaultKeyRef
     const apiKey = await ctx.resolveApiKey(keyRef)
-    if (apiKey) {
-      return await this.searchRest(query, maxResults, apiKey, keyRef, signal)
-    }
-    return await this.searchMcp(query, maxResults, signal)
+    return apiKey
+      ? await this.searchRest(request, apiKey, keyRef, signal)
+      : await this.searchMcp(request, signal)
   }
 
   private async searchRest(
-    query: string,
-    maxResults: number,
+    request: SearchRequest,
     apiKey: string,
     keyRef: string,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 25000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      const body = {
-        objective: query,
-        search_queries: [query],
-        mode: 'fast',
-        advanced_settings: {
-          max_results: Math.min(Math.max(maxResults || 5, 1), 20),
-        },
-      }
-
-      response = await fetch(PARALLEL_URL, {
+    const response = await engineRequest(
+      'Parallel',
+      PARALLEL_URL,
+      {
         method: 'POST',
         headers: {
           'x-api-key': apiKey,
           'content-type': 'application/json',
           accept: 'application/json',
         },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+        body: JSON.stringify({
+          objective: request.query,
+          search_queries: [request.query],
+          mode: 'fast',
+          advanced_settings: {
+            max_results: Math.min(Math.max(request.maxResults || 5, 1), 20),
+          },
+        }),
         redirect: 'error',
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `Parallel request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+      },
+      signal,
+    )
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
@@ -115,143 +96,101 @@ export class ParallelSearchEngine implements SearchEngine {
       )
     }
 
-    const data = (await response.json()) as {
-      results?: ParallelResult[]
-    }
-
-    const sources = this.toSources(data.results ?? [], maxResults)
-    if (sources.length === 0) {
-      throw new Error('Parallel returned 0 results')
-    }
-
-    return {
-      sources,
-      truncated: false,
-    }
+    const data = (await response.json()) as { results?: ParallelResult[] }
+    return toResult(this.id, this.toSources(data.results ?? []))
   }
 
   private async searchMcp(
-    query: string,
-    maxResults: number,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 35000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    try {
-      const initResponse = await this.postMcp(
-        {
-          jsonrpc: '2.0',
-          id: createRpcRequestId(),
-          method: 'initialize',
-          params: {
-            protocolVersion: PARALLEL_MCP_PROTOCOL_VERSION,
-            capabilities: {},
-            clientInfo: {
-              name: 'dsh-cust-search',
-              version: '0.1.0',
-            },
-          },
+    const initResponse = await this.postMcp(
+      {
+        jsonrpc: '2.0',
+        id: createRpcRequestId(),
+        method: 'initialize',
+        params: {
+          protocolVersion: PARALLEL_MCP_PROTOCOL_VERSION,
+          capabilities: {},
+          clientInfo: { name: 'dsh-cust-search', version: '0.1.0' },
         },
-        undefined,
-        controller.signal,
-      )
+      },
+      undefined,
+      signal,
+    )
 
-      if (!initResponse.ok) {
-        const detail = await initResponse.text().catch(() => '')
-        throw new Error(
-          `Parallel MCP initialize error (HTTP ${initResponse.status}): ${detail.slice(0, 150)}`,
-        )
-      }
-
-      const sessionId = initResponse.headers.get('mcp-session-id') ?? undefined
-      await this.readMcpPayload(initResponse, 'initialize')
-
-      const initializedResponse = await this.postMcp(
-        {
-          jsonrpc: '2.0',
-          method: 'notifications/initialized',
-        },
-        sessionId,
-        controller.signal,
-      )
-
-      if (!initializedResponse.ok) {
-        const detail = await initializedResponse.text().catch(() => '')
-        throw new Error(
-          `Parallel MCP initialized notification error (HTTP ${initializedResponse.status}): ${detail.slice(0, 150)}`,
-        )
-      }
-
-      const response = await this.postMcp(
-        {
-          jsonrpc: '2.0',
-          id: createRpcRequestId(),
-          method: 'tools/call',
-          params: {
-            name: 'web_search',
-            arguments: {
-              objective: query,
-              search_queries: [query],
-              session_id: PARALLEL_MCP_SESSION_ID,
-            },
-          },
-        },
-        sessionId,
-        controller.signal,
-      )
-
-      if (!response.ok) {
-        const detail = await response.text().catch(() => '')
-        throw new Error(
-          `Parallel MCP error (HTTP ${response.status}): ${detail.slice(0, 150)}`,
-        )
-      }
-
-      const payload = await this.readMcpPayload(response, 'web_search')
-      const result = payload.result as
-        | {
-            isError?: boolean
-            content?: Array<{ type?: string; text?: string }>
-            structuredContent?: { results?: ParallelResult[] }
-          }
-        | undefined
-
-      const text = (result?.content ?? [])
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text ?? '')
-        .join('\n')
-
-      if (result?.isError) {
-        throw new Error(`Parallel MCP error: ${text.slice(0, 200)}`)
-      }
-
-      const sources = this.toSources(
-        result?.structuredContent?.results ?? this.parseMcpSearchResults(text),
-        maxResults,
-      )
-      if (sources.length === 0) {
-        throw new Error('Parallel MCP returned 0 results')
-      }
-
-      return {
-        sources,
-        truncated: false,
-      }
-    } catch (error) {
-      if (signal?.aborted) throw error
-      if (error instanceof Error && error.message.startsWith('Parallel')) {
-        throw error
-      }
+    if (!initResponse.ok) {
+      const detail = await initResponse.text().catch(() => '')
       throw new Error(
-        `Parallel MCP request failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Parallel MCP initialize error (HTTP ${initResponse.status}): ${detail.slice(0, 150)}`,
       )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
     }
+
+    const sessionId = initResponse.headers.get('mcp-session-id') ?? undefined
+    await this.readMcpPayload(initResponse, 'initialize')
+
+    const initializedResponse = await this.postMcp(
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      sessionId,
+      signal,
+    )
+
+    if (!initializedResponse.ok) {
+      const detail = await initializedResponse.text().catch(() => '')
+      throw new Error(
+        `Parallel MCP initialized notification error (HTTP ${initializedResponse.status}): ${detail.slice(0, 150)}`,
+      )
+    }
+
+    const response = await this.postMcp(
+      {
+        jsonrpc: '2.0',
+        id: createRpcRequestId(),
+        method: 'tools/call',
+        params: {
+          name: 'web_search',
+          arguments: {
+            objective: request.query,
+            search_queries: [request.query],
+            session_id: PARALLEL_MCP_SESSION_ID,
+          },
+        },
+      },
+      sessionId,
+      signal,
+    )
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(
+        `Parallel MCP error (HTTP ${response.status}): ${detail.slice(0, 150)}`,
+      )
+    }
+
+    const payload = await this.readMcpPayload(response, 'web_search')
+    const result = payload.result as
+      | {
+          isError?: boolean
+          content?: Array<{ type?: string; text?: string }>
+          structuredContent?: { results?: ParallelResult[] }
+        }
+      | undefined
+
+    const text = (result?.content ?? [])
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text ?? '')
+      .join('\n')
+
+    if (result?.isError) {
+      throw new Error(`Parallel MCP error: ${text.slice(0, 200)}`)
+    }
+
+    return toResult(
+      this.id,
+      this.toSources(
+        result?.structuredContent?.results ?? this.parseMcpSearchResults(text),
+      ),
+    )
   }
 
   private async postMcp(
@@ -268,20 +207,17 @@ export class ParallelSearchEngine implements SearchEngine {
       headers['mcp-protocol-version'] = PARALLEL_MCP_PROTOCOL_VERSION
     }
 
-    try {
-      return await fetch(PARALLEL_MCP_URL, {
+    return await engineRequest(
+      'Parallel MCP',
+      PARALLEL_MCP_URL,
+      {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal,
         redirect: 'error',
-      })
-    } catch (error) {
-      if (signal.aborted) throw error
-      throw new Error(
-        `Parallel MCP request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+      },
+      signal,
+    )
   }
 
   private async readMcpPayload(
@@ -349,11 +285,8 @@ export class ParallelSearchEngine implements SearchEngine {
     }
   }
 
-  private toSources(
-    results: ParallelResult[],
-    _maxResults: number,
-  ): WebSearchSource[] {
-    const sources: WebSearchSource[] = results
+  private toSources(results: ParallelResult[]): WebSearchSource[] {
+    return results
       .filter((result) => Boolean(result.url))
       .map((result) => {
         const excerpt = (result.excerpts ?? []).find(
@@ -362,13 +295,11 @@ export class ParallelSearchEngine implements SearchEngine {
         return {
           url: result.url!,
           ...(result.title ? { title: String(result.title) } : {}),
-          ...(excerpt ? { snippet: String(excerpt).slice(0, 300) } : {}),
+          ...(excerpt ? { snippet: String(excerpt) } : {}),
           ...(result.publish_date
             ? { publishedAt: String(result.publish_date) }
             : {}),
         }
       })
-
-    return uniqueSources(sources)
   }
 }

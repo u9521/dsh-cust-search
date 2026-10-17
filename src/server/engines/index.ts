@@ -1,5 +1,5 @@
-import type { EngineDefinition, SearchEngine } from '../../types.ts'
-import { DeepSeekBridgeEngine } from './deepseek.ts'
+import type { EngineRegistry, SearchEngine } from '../../types.ts'
+import { DeepSeekBridgeEngine, officialProviderOf } from './deepseek.ts'
 import { BingSearchEngine } from './bing.ts'
 import { DuckDuckGoSearchEngine } from './duckduckgo.ts'
 import { SearxngSearchEngine } from './searxng.ts'
@@ -12,6 +12,10 @@ import { ParallelSearchEngine } from './parallel.ts'
 import { PerplexitySearchEngine } from './perplexity.ts'
 
 export * from './base.ts'
+export * from './deadline.ts'
+export * from './request.ts'
+export * from './result.ts'
+export * from './run.ts'
 export * from './deepseek.ts'
 export * from './bing.ts'
 export * from './duckduckgo.ts'
@@ -24,37 +28,42 @@ export * from './firecrawl.ts'
 export * from './parallel.ts'
 export * from './perplexity.ts'
 
-export function createEngineRegistry(): Map<string, SearchEngine> {
-  const registry = new Map<string, SearchEngine>()
+/**
+ * Build the engine registry.
+ *
+ * The adapters are stateless, so one instance serves every request; callers
+ * build the registry once and keep it. It used to be rebuilt per HTTP request
+ * just to read each adapter's `id`.
+ *
+ * @param web - the `ctx.web` service, read only by the DeepSeek bridge.
+ * @returns the registry.
+ */
+export function buildEngineRegistry(web?: unknown): EngineRegistry {
+  const engines: SearchEngine[] = [
+    new DeepSeekBridgeEngine(() => officialProviderOf(web)),
+    new BingSearchEngine(),
+    new DuckDuckGoSearchEngine(),
+    new SearxngSearchEngine(),
+    new TavilySearchEngine(),
+    new AnysearchSearchEngine(),
+    new ExaSearchEngine(),
+    new KeenableSearchEngine(),
+    new FirecrawlSearchEngine(),
+    new ParallelSearchEngine(),
+    new PerplexitySearchEngine(),
+  ]
+  const byId = new Map(engines.map((engine) => [engine.id, engine]))
 
-  const register = (engine: SearchEngine) => {
-    registry.set(engine.id, engine)
+  return {
+    get: (id) => byId.get(id),
+    all: () => engines,
+    definitions: () =>
+      engines.map((engine) => ({
+        id: engine.id,
+        type: engine.type,
+        ...(engine.defaultKeyRef
+          ? { defaultKeyRef: engine.defaultKeyRef }
+          : {}),
+      })),
   }
-
-  register(new DeepSeekBridgeEngine())
-  register(new BingSearchEngine())
-  register(new DuckDuckGoSearchEngine())
-  register(new SearxngSearchEngine())
-  register(new TavilySearchEngine())
-  register(new AnysearchSearchEngine())
-  register(new ExaSearchEngine())
-  register(new KeenableSearchEngine())
-  register(new FirecrawlSearchEngine())
-  register(new ParallelSearchEngine())
-  register(new PerplexitySearchEngine())
-
-  return registry
-}
-
-export function getEngineDefinitions(): EngineDefinition[] {
-  const registry = createEngineRegistry()
-  const defs: EngineDefinition[] = []
-  for (const engine of registry.values()) {
-    defs.push({
-      id: engine.id,
-      type: engine.type,
-      ...(engine.defaultKeyRef ? { defaultKeyRef: engine.defaultKeyRef } : {}),
-    })
-  }
-  return defs
 }

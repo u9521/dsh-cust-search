@@ -19,6 +19,10 @@ export const en = {
     'Configuration modified (marked to clear credentials for {names}). Save config to apply.',
   'header.saveFailed': 'Save failed:',
   'header.loadFailed': 'Failed to load config:',
+  'error.unauthorized':
+    'Browser session is not authenticated or has expired. Reopen the token link printed by `dsh web`.',
+  'error.forbidden':
+    'Request rejected by the DSH Host/Origin check. When reaching this deployment by a non-loopback address, add it to client-connection `trustedHosts`.',
   'header.loading': 'Loading search plugin configuration...',
   'header.noEnabledEngines':
     'No search engines enabled. Please switch to Detail Mode to enable engines.',
@@ -113,6 +117,7 @@ export const en = {
   'engines.perplexity.name': 'Perplexity Search',
   'engines.perplexity.description':
     'Perplexity Sonar retrieval returning a cited generated answer; requires an API Key',
+  'test.timeout': 'Request timed out',
 } as const
 
 /** Dictionary key union of the `cust-search` locale namespace. */

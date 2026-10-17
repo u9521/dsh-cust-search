@@ -3,8 +3,9 @@ import {
   IconRefreshOutlineRegular,
   IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { EngineDefinition, EngineSpecificConfig } from '../../types.ts'
+import type { EngineDefinition } from '../../types.ts'
 import { useI18n } from '../i18n.ts'
+import type { ConfigDraft } from '../settings/useConfigDraft.ts'
 import { EngineTypeBadge } from './common/EngineTypeBadge.ts'
 import { OrderBadge } from './common/OrderBadge.ts'
 import { Switch } from './common/Switch.ts'
@@ -13,42 +14,33 @@ const e = React.createElement
 
 export interface EngineDetailCardProps {
   engineDef: EngineDefinition
-  orderIndex?: number // 1-based index if enabled, undefined if disabled
-  engineConfig: EngineSpecificConfig
-  defaultTimeout: number
-  apiKeyInput: string
-  isMarkedForClear?: boolean
-  onToggleEnable: (enabled: boolean) => void
-  onChangeTimeout: (timeout?: number) => void
-  onChangeKeyRef: (keyRef: string) => void
-  onApiKeyInputChange: (val: string) => void
-  onClearApiKey: () => void
-  onUndoClearApiKey: () => void
-  onChangeOption: (key: string, value: unknown) => void
+  /** 1-based position when enabled; undefined when the engine is off. */
+  orderIndex?: number
+  /** The page's draft and commands. */
+  draft: ConfigDraft
 }
 
 export function EngineDetailCard({
   engineDef,
   orderIndex,
-  engineConfig,
-  defaultTimeout,
-  apiKeyInput,
-  isMarkedForClear = false,
-  onToggleEnable,
-  onChangeTimeout,
-  onChangeKeyRef,
-  onApiKeyInputChange,
-  onClearApiKey,
-  onUndoClearApiKey,
-  onChangeOption,
+  draft,
 }: EngineDetailCardProps): React.ReactElement {
   const { t } = useI18n()
+  const config = draft.draft
+  const engineConfig = config?.engineConfigs[engineDef.id] ?? {}
+  const defaultTimeout = config?.defaultTimeout ?? 8000
+  const apiKeyInput = draft.keyInputs[engineDef.id] ?? ''
+  const isMarkedForClear = draft.clearedEngineIds.includes(engineDef.id)
+
   const isEnabled = typeof orderIndex === 'number' && orderIndex > 0
   const currentKeyRef =
     (engineConfig.keyRef as string) || engineDef.defaultKeyRef || ''
 
   const engineName = t(`engines.${engineDef.id}.name`) || engineDef.id
   const engineDesc = t(`engines.${engineDef.id}.description`) || ''
+
+  const setOption = (key: string, value: unknown) =>
+    draft.setEngineConfig(engineDef.id, { [key]: value })
 
   return e(
     'div',
@@ -69,7 +61,7 @@ export function EngineDetailCard({
       // Clean Switch Button (No redundant text prompt)
       e(Switch, {
         checked: isEnabled,
-        onChange: onToggleEnable,
+        onChange: (enabled: boolean) => draft.setEnabled(engineDef.id, enabled),
         label: engineName,
         title: isEnabled ? t('badge.enabled') : t('badge.disabled'),
       }),
@@ -98,7 +90,7 @@ export function EngineDetailCard({
           value: engineConfig.timeout || '',
           onChange: (ev: React.ChangeEvent<HTMLInputElement>) => {
             const val = parseInt(ev.target.value, 10)
-            onChangeTimeout(isNaN(val) || val <= 0 ? undefined : val)
+            setOption('timeout', isNaN(val) || val <= 0 ? undefined : val)
           },
           min: 1000,
           step: 500,
@@ -122,7 +114,7 @@ export function EngineDetailCard({
               placeholder:
                 engineDef.defaultKeyRef || t('detail.keyRefPlaceholder'),
               onChange: (ev: React.ChangeEvent<HTMLInputElement>) =>
-                onChangeKeyRef(ev.target.value),
+                setOption('keyRef', ev.target.value),
             }),
           )
         : null,
@@ -175,7 +167,11 @@ export function EngineDetailCard({
                     : t('detail.apiKeyPlaceholderEmpty'),
                 value: isMarkedForClear ? '' : apiKeyInput,
                 onChange: (ev: React.ChangeEvent<HTMLInputElement>) =>
-                  onApiKeyInputChange(ev.target.value),
+                  draft.setKeyInput(
+                    engineDef.id,
+                    ev.target.value,
+                    engineDef.defaultKeyRef,
+                  ),
                 style: { flex: 1 },
               }),
               e(
@@ -188,16 +184,17 @@ export function EngineDetailCard({
                   title: isMarkedForClear
                     ? t('detail.undoClearKeyTitle')
                     : t('detail.clearKeyTitle'),
-                  onClick: isMarkedForClear ? onUndoClearApiKey : onClearApiKey,
+                  onClick: () =>
+                    isMarkedForClear
+                      ? draft.undoClearKey(engineDef.id)
+                      : draft.clearKey(engineDef.id, engineDef.defaultKeyRef),
                   style: { flexShrink: 0 },
                 },
                 e(
                   isMarkedForClear
                     ? IconRefreshOutlineRegular
                     : IconTrashOutlineRegular,
-                  {
-                    size: 14,
-                  },
+                  { size: 14 },
                 ),
                 e(
                   'span',
@@ -226,7 +223,7 @@ export function EngineDetailCard({
                 className: 'dsh-cs-select',
                 value: (engineConfig.market as string) || 'zh-CN',
                 onChange: (ev: React.ChangeEvent<HTMLSelectElement>) =>
-                  onChangeOption('market', ev.target.value),
+                  setOption('market', ev.target.value),
               },
               e('option', { value: 'zh-CN' }, 'zh-CN (简体中文)'),
               e('option', { value: 'zh-TW' }, 'zh-TW (繁体中文)'),
@@ -261,7 +258,7 @@ export function EngineDetailCard({
                   .split(',')
                   .map((s) => s.trim())
                   .filter(Boolean)
-                onChangeOption('instances', arr)
+                setOption('instances', arr)
               },
             }),
           )

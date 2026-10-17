@@ -1,10 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { fetchHtmlWithRetry, stripTags, uniqueSources } from './base.ts'
+import { fetchHtmlWithRetry, stripTags } from './base.ts'
+import { toResult } from './result.ts'
 
 const BING_URL = 'https://www.bing.com/search'
 
@@ -23,25 +25,19 @@ export class BingSearchEngine implements SearchEngine {
   readonly id = 'bing'
   readonly type = 'free' as const
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    _maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     const market =
       (typeof ctx.engineConfig.market === 'string' &&
         ctx.engineConfig.market) ||
       'zh-CN'
-    const profile = LANG_PROFILES.zh
-    const acceptLang = profile.acceptLang
+    const acceptLang = LANG_PROFILES.zh.acceptLang
 
     const params = new URLSearchParams({
-      q: query,
+      q: request.query,
       mkt: market,
       adlt: 'off',
     })
@@ -69,14 +65,6 @@ export class BingSearchEngine implements SearchEngine {
       })
     }
 
-    const limited = uniqueSources(sources)
-    if (limited.length === 0) {
-      throw new Error('Bing returned 0 results')
-    }
-
-    return {
-      sources: limited,
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 }

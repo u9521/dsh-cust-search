@@ -17,6 +17,10 @@ export const zh: Record<CustSearchLocaleKey, string> = {
     '配置已修改（已标记清空 {names} 的凭据），保存配置后生效',
   'header.saveFailed': '保存失败:',
   'header.loadFailed': '加载失败:',
+  'error.unauthorized':
+    '浏览器会话未认证或已过期，请重新打开 `dsh web` 启动时打印的带 token 链接。',
+  'error.forbidden':
+    '请求被 DSH 的 Host/Origin 校验拒绝。若通过非本机地址访问，请将该地址加入 client-connection 的 `trustedHosts`。',
   'header.loading': '正在加载搜索插件配置...',
   'header.noEnabledEngines':
     '当前未启用任何搜索引擎，请切换至详细配置模式开启引擎。',
@@ -105,4 +109,5 @@ export const zh: Record<CustSearchLocaleKey, string> = {
   'engines.perplexity.name': 'Perplexity Search',
   'engines.perplexity.description':
     'Perplexity Sonar 在线检索并返回带引用的生成式答案，需配置 API Key',
-}
+  'test.timeout': '请求超时',
+} as const

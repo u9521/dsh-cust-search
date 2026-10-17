@@ -5,11 +5,22 @@ English | [中文](schema.zh.md)
 Persistent configuration for `dsh-cust-search` is stored in an isolated user directory without modifying system or host configuration files.
 
 - **File Path**: `~/.dsh/storages/cust_search.json`
+- **Storage engine**: the `cust_search` domain of `ctx.storage.domain` (JSON backend, `single` layout). The file is a domain unit document, not the bare configuration object:
+  ```json
+  {
+    "unit": { "name": "cust_search", "version": 1 },
+    "global": { "...the configuration below..." },
+    "tables": {}
+  }
+  ```
+  Every write republishes the whole unit atomically; a malformed or foreign file fails the domain open instead of being replaced by defaults.
 - **Security**: Sensitive credentials like API keys are managed through DSH credentials (`ctx.credentials`) and **are never written in plaintext to this JSON file**.
 
 ---
 
 ## 1. Complete Configuration Example
+
+The object below is the value of `global`:
 
 ```json
 {
@@ -81,11 +92,13 @@ Persistent configuration for `dsh-cust-search` is stored in an isolated user dir
 
 | Field | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `defaultTimeout` | `number` | No | `8000` | Global default request timeout in milliseconds when an engine does not have a dedicated timeout. |
+| `defaultTimeout` | `number` | No | `8000` | The budget for one engine attempt. An engine's own `timeout` overrides it; adapters impose no budget of their own, so this value is authoritative rather than an upper bound. |
 | `enginesOrder` | `string[]` | Yes | Built-in order (`deepseek`, `bing`, `ddg`, `searxng`, `tavily`, `anysearch`, `exa`, `keenable`, `firecrawl`, `parallel`, `perplexity`) | Ordered array of **enabled** engine IDs. The array order dictates the sequential execution and fallback priority. |
 | `engineConfigs` | `object` | No | `{}` | Per-engine specific configuration map keyed by engine ID. |
 
 The file is read and written exclusively by the host routes `/api/cust-search/get-config` and `/api/cust-search/set-config`; the settings page never touches it directly.
+
+Both routes are registered on DSH's shared `/api` channel, so they are admitted by `@deepseek-ai/dsh-client-connection` before dispatch: the Host/Origin fence, then the browser or API credential, then an owner Peer. A request without the cookie — including a plain `curl` — is answered with `401`, and an untrusted Host/Origin with `403`; open the token link printed by `dsh web` to establish the session. Cookies are marked `Secure` when the listener serves TLS, and non-browser API callers exchange `GET /connect?token=...` for an API cookie instead.
 
 ---
 

@@ -1,10 +1,12 @@
 import type {
+  EngineContext,
   SearchEngine,
-  SearchEngineContext,
+  SearchRequest,
   WebSearchResult,
   WebSearchSource,
 } from '../../types.ts'
-import { uniqueSources } from './base.ts'
+import { engineRequest } from './request.ts'
+import { toResult } from './result.ts'
 
 const FIRECRAWL_URL = 'https://api.firecrawl.dev/v2/search'
 
@@ -13,51 +15,32 @@ export class FirecrawlSearchEngine implements SearchEngine {
   readonly type = 'keyed' as const
   readonly defaultKeyRef = 'FIRECRAWL_API_KEY'
 
-  available(): boolean {
-    return true
-  }
-
   async search(
-    query: string,
-    maxResults: number,
-    ctx: SearchEngineContext,
-    signal?: AbortSignal,
+    request: SearchRequest,
+    ctx: EngineContext,
+    signal: AbortSignal,
   ): Promise<WebSearchResult> {
     const keyRef = ctx.engineConfig.keyRef || this.defaultKeyRef
     const apiKey = await ctx.resolveApiKey(keyRef)
 
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 20000)
-    const onAbort = () => controller.abort()
-    signal?.addEventListener('abort', onAbort)
-
-    let response: Response
-    try {
-      const body = {
-        query,
-        limit: Math.min(Math.max(maxResults || 5, 1), 10),
-      }
-
-      response = await fetch(FIRECRAWL_URL, {
+    const response = await engineRequest(
+      'Firecrawl',
+      FIRECRAWL_URL,
+      {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
           accept: 'application/json',
           ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
         },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+        body: JSON.stringify({
+          query: request.query,
+          limit: Math.min(Math.max(request.maxResults || 5, 1), 10),
+        }),
         redirect: 'error',
-      })
-    } catch (error) {
-      if (signal?.aborted) throw error
-      throw new Error(
-        `Firecrawl request failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    } finally {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-    }
+      },
+      signal,
+    )
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
@@ -81,24 +64,14 @@ export class FirecrawlSearchEngine implements SearchEngine {
         web?: Array<{ url?: string; title?: string; description?: string }>
       }
     }
-
     const sources: WebSearchSource[] = (data.data?.web ?? [])
       .filter((r) => Boolean(r.url))
       .map((r) => ({
         url: r.url!,
         ...(r.title ? { title: String(r.title) } : {}),
-        ...(r.description
-          ? { snippet: String(r.description).slice(0, 300) }
-          : {}),
+        ...(r.description ? { snippet: String(r.description) } : {}),
       }))
 
-    if (sources.length === 0) {
-      throw new Error('Firecrawl returned 0 results')
-    }
-
-    return {
-      sources: uniqueSources(sources),
-      truncated: false,
-    }
+    return toResult(this.id, sources)
   }
 }
