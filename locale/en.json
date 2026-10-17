@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Custom Web Search",
+    "description": "Multi-engine sequential fallback web search provider with a settings and testing page."
+  }
+}

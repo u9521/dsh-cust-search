@@ -1,0 +1,59 @@
+{
+  "name": "@local/dsh-cust-search",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Custom Web Search plugin for DeepSeek Harness (DSH), replacing web-search-deepseek with multi-engine sequential fallback.",
+  "icon": "icon.svg",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "files": [
+    "lib",
+    "locale",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19 || >=24",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ],
+      "platform": "web"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "web-search",
+    "search"
+  ],
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "author": "u9521",
+  "dependencies": {
+    "@deepseek-ai/dsh-storage-domain": "0.2.1-rc.2",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-storage": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-storage-domain": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-web": "^0.2.1-rc.2",
+    "zod": "^4.4.3"
+  }
+}

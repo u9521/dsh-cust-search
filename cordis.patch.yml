@@ -1,0 +1,8 @@
+- insert:
+    - id: web-search-custom
+      name: '@local/dsh-cust-search'
+
+- id: web
+  config:
+    searchProvider: cust-search
+    fetchProvider: http
