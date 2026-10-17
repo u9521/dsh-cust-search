@@ -59,6 +59,32 @@ const CLIENT_EXTERNALS = new Set([...PLATFORM_MODULES, ...REQUESTED_MODULES])
 const isPlatformModule = (specifier) => CLIENT_EXTERNALS.has(specifier)
 const isDshPackage = (specifier) => specifier.startsWith('@deepseek-ai/')
 
+/**
+ * Peer dependencies that the host process already provides, and therefore must
+ * NOT be inlined into the host artifact.
+ *
+ * `zod` was bundled here: a second copy in the process next to the one
+ * `@deepseek-ai/dsh-storage-domain` resolves, and 129 KB of the 184 KB artifact.
+ * The size is the symptom; the hazard is identity. Two copies mean two class
+ * objects, and DSH decides routing and presentation with `instanceof`
+ * (`isHarnessError`, `errorInfo`) — a value whose class comes from the other
+ * copy narrows to `undefined` and the error's machine code is dropped.
+ *
+ * `zod`'s own `ZodType` happens to define a duck-typed `Symbol.hasInstance`, so
+ * schema checks survive a split today; that is zod's courtesy, not a guarantee,
+ * and it does not extend to anything else bundled here. Keeping host-resolved
+ * packages external removes the question instead of relying on it, which is
+ * also what the `@deepseek-ai/*` rule below already does.
+ *
+ * DSH's loader honours this further: for a linked plugin it routes a bare
+ * import of a name in the package's `peerDependencies` to the installation's
+ * copy, so declaring the peer is what makes the single instance the real one.
+ */
+const HOST_PEERS = ['zod']
+const isHostPeer = (specifier) =>
+  HOST_PEERS.includes(specifier) ||
+  HOST_PEERS.some((peer) => specifier.startsWith(`${peer}/`))
+
 /** Fail the build on a cross-plugin value import the module table cannot answer. */
 const purityGate = {
   name: 'dsh-client-bundle-purity',
@@ -73,7 +99,7 @@ const purityGate = {
   },
 }
 
-/** The host half: ESM, every DSH package external. */
+/** The host half: ESM, every DSH package and host-provided peer external. */
 const host = {
   name: ID,
   entry: ['lib/types/index.js'],
@@ -85,9 +111,12 @@ const host = {
   dts: false,
   clean: false,
   deps: {
-    neverBundle: isDshPackage,
+    neverBundle: (specifier) =>
+      isDshPackage(specifier) || isHostPeer(specifier),
     alwaysBundle: (specifier) =>
-      !isBuiltin(specifier) && !isDshPackage(specifier),
+      !isBuiltin(specifier) &&
+      !isDshPackage(specifier) &&
+      !isHostPeer(specifier),
   },
 }
 

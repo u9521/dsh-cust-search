@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 English | [中文](README.zh.md)
@@ -34,7 +34,7 @@ Custom Web Search plugin for DeepSeek Harness (DSH) WebUI. Searches through conf
 
 | Engine | ID | Type | Credential | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **DeepSeek Official** | `deepseek` | `Bridge` | Official plugin settings | Direct bridge to official `deepseek-official` provider |
+| **DeepSeek Official** | `deepseek` | `Bridge` | Official plugin settings | Bridge to the official providers: `deepseek-search-api` (direct Search API) preferred, `deepseek-official` (Messages `web_search`) as fallback |
 | **Bing** | `bing` | `Free` | None | Region/locale-driven web search |
 | **DuckDuckGo** | `ddg` | `Free` | None | HTML primary channel with Lite fallback |
 | **SearXNG** | `searxng` | `Free` | None | Rotates public instances or custom endpoints |
@@ -46,7 +46,7 @@ Custom Web Search plugin for DeepSeek Harness (DSH) WebUI. Searches through conf
 | **Parallel** | `parallel` | `Keyed` | `PARALLEL_API_KEY` | AI search; anonymous Streamable HTTP MCP when keyless |
 | **Perplexity** | `perplexity` | `Keyed` | `PERPLEXITY_API_KEY` | Sonar generative search with source citations |
 
-> The `deepseek` bridge reuses the official `deepseek-official` provider. `@deepseek-ai/dsh-web` exposes no public "provider by id" accessor, so the bridge reads the web runtime's provider registry directly (one adapter, `src/server/engines/deepseek.ts`) and degrades to "engine unavailable" if that internal shape changes.
+> The `deepseek` bridge reuses the official DeepSeek providers. DSH 0.2.1-rc.2 ships two: `deepseek-search-api` (one direct Search API request, no model turn, takes a result count) and `deepseek-official` (a Messages turn with the native `web_search` server tool). The bridge prefers the direct API and falls back to Messages search, skipping a registered provider only while another one reports itself usable — with neither configured it still picks one, so the missing-key error names the key instead of claiming nothing is registered. `@deepseek-ai/dsh-web` exposes no public "provider by id" accessor, so the bridge reads the web runtime's provider registry directly (one adapter, `src/server/engines/deepseek.ts`) and degrades to "engine unavailable" if that internal shape changes.
 
 ---
 
@@ -54,7 +54,7 @@ Custom Web Search plugin for DeepSeek Harness (DSH) WebUI. Searches through conf
 
 | Plugin Version | Compatible DSH Version | Notes |
 | :--- | :--- | :--- |
-| **main (Current)** | **`>= 0.2.1-rc.1`** | Typed `ctx.slots`, `credentials.describe()` for key status, and `ctx.storage.domain` for configuration; `cordis.patch.yml` pins `web.searchProvider` declaratively |
+| **main (Current)** | **`>= 0.2.1-rc.2`** | Bridges both official DeepSeek providers (`deepseek-search-api` preferred); typed `ctx.slots`, `credentials.describe()` for key status, and `ctx.storage.domain` for configuration; `cordis.patch.yml` pins `web.searchProvider` declaratively |
 
 ---
 
@@ -129,7 +129,7 @@ pnpm run build
 
 | Command | Description |
 | :--- | :--- |
-| `pnpm run build` | Full build (runs `tsc` type check + generates `lib/` bundles) |
+| `pnpm run build` | Full build (`tsc` type check, then `lib/` bundles; fails if the host artifact inlined a package the host already provides) |
 | `pnpm run check` | Type check only (`tsc --noEmit`) |
 | `pnpm run lint` | Full lint check (ESLint + TypeScript + Prettier) |
 | `pnpm run lint:fix` | Automatically fix ESLint rules and format code |

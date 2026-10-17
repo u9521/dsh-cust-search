@@ -81,7 +81,7 @@ export const zh: Record<CustSearchLocaleKey, string> = {
     '共测试 {total} 个引擎：{success} 个成功，{failed} 个失败',
   'engines.deepseek.name': 'DeepSeek Official',
   'engines.deepseek.description':
-    '直接调用官方 web-search-deepseek 插件；API Key、端点及模型等具体配置请前往官方「Web 搜索」插件配置卡片设置。',
+    '桥接官方 DeepSeek 搜索提供方：优先使用直连 Search API，回退到 Messages web_search。API Key 与端点请在官方「网页搜索」设置卡片中配置。',
   'engines.bing.name': 'Bing Search',
   'engines.bing.description': '微软必应网页搜索，支持多语言与地区本地化检索',
   'engines.ddg.name': 'DuckDuckGo',

@@ -1,7 +1,7 @@
 # dsh-cust-search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.1-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-%3E%3D0.2.1--rc.2-brightgreen.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node Version](https://img.shields.io/badge/Node-%5E22.19%20%7C%7C%20%3E%3D24-blue.svg)](https://nodejs.org/)
 
 [English](README.md) | 中文
@@ -34,7 +34,7 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 
 | 引擎名称 | 引擎 ID | 接入类型 | 凭据配置 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| **DeepSeek Official** | `deepseek` | `Bridge` | 官方插件设置页 | 直连官方 `deepseek-official` 提供方 |
+| **DeepSeek Official** | `deepseek` | `Bridge` | 官方插件设置页 | 桥接官方提供方：优先 `deepseek-search-api`（直连 Search API），回退 `deepseek-official`（Messages `web_search`） |
 | **Bing** | `bing` | `Free` | 无需凭据 | 语言区域驱动网页检索 |
 | **DuckDuckGo** | `ddg` | `Free` | 无需凭据 | HTML 主通道，失败降级 Lite 通道 |
 | **SearXNG** | `searxng` | `Free` | 无需凭据 | 自动轮询公共实例，支持配置自定义实例 |
@@ -46,7 +46,7 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 | **Parallel** | `parallel` | `Keyed` | `PARALLEL_API_KEY` | AI 目标检索，无 Key 走免认证 Streamable HTTP MCP |
 | **Perplexity** | `perplexity` | `Keyed` | `PERPLEXITY_API_KEY` | Sonar 大模型生成式检索，带引用来源 |
 
-> `deepseek` 直连引擎复用官方 `deepseek-official` 提供方。`@deepseek-ai/dsh-web` 未公开「按 ID 取 provider」的接口，因此该引擎直接读取 web 运行时的 provider 注册表（收敛在 `src/server/engines/deepseek.ts` 一处）；若该内部结构变化，引擎会降级为「不可用」而不是让整个搜索失败。
+> `deepseek` 直连引擎复用官方 DeepSeek 提供方。DSH 0.2.1-rc.2 提供两个：`deepseek-search-api`（单次直连 Search API 请求，不产生模型调用，可指定结果数）与 `deepseek-official`（一次 Messages 调用，走原生 `web_search` 服务端工具）。引擎优先用直连 API，回退到 Messages 搜索；只有当另一个提供方自报可用时才会跳过不可用者——两者都没配 Key 时仍会选中一个，以便报出「缺少哪个 Key」而不是「什么都没注册」。`@deepseek-ai/dsh-web` 未公开「按 ID 取 provider」的接口，因此该引擎直接读取 web 运行时的 provider 注册表（收敛在 `src/server/engines/deepseek.ts` 一处）；若该内部结构变化，引擎会降级为「不可用」而不是让整个搜索失败。
 
 ---
 
@@ -54,7 +54,7 @@ DeepSeek Harness (DSH) WebUI 多引擎顺序搜索插件，按顺序尝试多个
 
 | 插件版本 | 兼容 DSH 版本 | 说明 |
 | :--- | :--- | :--- |
-| **main（当前）** | **`>= 0.2.1-rc.1`** | 使用类型化 `ctx.slots`、`credentials.describe()` 判断密钥状态、`ctx.storage.domain` 持久化配置；由 `cordis.patch.yml` 声明式固定 `web.searchProvider` |
+| **main（当前）** | **`>= 0.2.1-rc.2`** | 桥接两个官方 DeepSeek 提供方（优先 `deepseek-search-api`）；使用类型化 `ctx.slots`、`credentials.describe()` 判断密钥状态、`ctx.storage.domain` 持久化配置；由 `cordis.patch.yml` 声明式固定 `web.searchProvider` |
 
 ---
 
@@ -129,7 +129,7 @@ pnpm run build
 
 | 命令 | 说明 |
 | :--- | :--- |
-| `pnpm run build` | 完整编译构建，生成 `lib/` 产物 |
+| `pnpm run build` | 完整编译构建（`tsc` 类型检查后生成 `lib/` 产物；若宿主产物内联了宿主已提供的包则构建失败） |
 | `pnpm run check` | 仅类型检查 (`tsc --noEmit`) |
 | `pnpm run lint` | 全量代码检查 (ESLint + TypeScript + Prettier) |
 | `pnpm run lint:fix` | 自动修复 ESLint 规则与代码格式化 |

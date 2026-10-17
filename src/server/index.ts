@@ -8,7 +8,10 @@ import type {} from '@deepseek-ai/dsh-storage-domain'
 import { createConfigStore } from './config.ts'
 import type { ConfigStore } from './config.ts'
 import { custSearchDomainSpec } from './domain.ts'
-import { buildEngineRegistry } from './engines/index.ts'
+import {
+  buildEngineRegistry,
+  selectedSearchProviderOf,
+} from './engines/index.ts'
 import { runEngine } from './engines/run.ts'
 import { CustSearchProvider, CUST_SEARCH_PROVIDER_ID } from './provider.ts'
 import { registerRoutes } from './routes.ts'
@@ -92,6 +95,19 @@ export function apply(ctx: Context): void {
     // One engine set for the whole plugin: the adapters are stateless, so the
     // provider and the settings routes share the same instances.
     const engines = buildEngineRegistry(ctx.web)
+
+    // Say so when the seam will not select this plugin. The official Web search
+    // page writes the same `web.searchProvider` field the bundle patch pins, and
+    // the profile layer outranks it, so a switch flipped there silently takes
+    // this plugin out of the chain. A warning beats a search that quietly runs
+    // through a different provider.
+    const selected = selectedSearchProviderOf(ctx.web)
+    if (selected !== undefined && selected !== CUST_SEARCH_PROVIDER_ID) {
+      logger.warn(
+        `cust-search: web.searchProvider is "${selected}", so this plugin will not receive searches. ` +
+          'Set it back to "cust-search" (Plugins > Built-in plugin settings > Web search, or the web entry in cordis.patch.yml) to re-enable the engine chain.',
+      )
+    }
 
     // HTTP routes live on DSH's shared `/api` channel, which admits a request
     // through the owner Peer (Host/Origin fence plus the browser or API cookie)

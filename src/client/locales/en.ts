@@ -88,7 +88,7 @@ export const en = {
     'Tested {total} engines: {success} succeeded, {failed} failed',
   'engines.deepseek.name': 'DeepSeek Official',
   'engines.deepseek.description':
-    'Direct bridge to official web-search-deepseek plugin. Please configure API Key, endpoint, and model in the official Web Search settings.',
+    'Bridge to the official DeepSeek search providers, preferring the direct Search API and falling back to Messages web_search. Configure the key and endpoint in the official Web search settings.',
   'engines.bing.name': 'Bing Search',
   'engines.bing.description':
     'Microsoft Bing web search with locale and market support',
